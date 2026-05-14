@@ -13,8 +13,8 @@ from src.bridge.bridge_controller import BridgeController
 from src.bridge.bridge_events import BridgeEventType
 from src.display.panels.continuous_keyence_panel import ContinuousKeyencePanel
 from src.display.panels.control_bar import ControlBar
-from src.display.panels.keyence_sent_panel import KeyenceSentPanel
-from src.display.panels.spc_received_panel import SpcReceivedPanel
+from src.display.panels.keyence_coms_panel import KeyenceComsPanel
+from src.display.panels.spc_coms_panel import SpcComsPanel
 from src.display.panels.status_column import StatusColumn
 
 
@@ -41,8 +41,8 @@ class BridgeTuiApp(App):
             with Horizontal(id="content-row"):
                 with Vertical(id="left-column"):
                     with Horizontal(id="coms-row"):
-                        yield SpcReceivedPanel(id="spc-received-panel")
-                        yield KeyenceSentPanel(id="keyence-sent-panel")
+                        yield SpcComsPanel(id="spc-received-panel")
+                        yield KeyenceComsPanel(id="keyence-sent-panel")
 
                     yield ContinuousKeyencePanel(id="continuous-panel")
 
@@ -138,17 +138,17 @@ class BridgeTuiApp(App):
     def _drain_controller_events(self) -> None:
         for event in self.controller.drain_events():
             if event.type == BridgeEventType.SPC_RECEIVED:
-                self.query_one("#spc-received-panel", SpcReceivedPanel).log_received(
+                self.query_one("#spc-received-panel", SpcComsPanel).log_received(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_SENT:
-                self.query_one("#keyence-sent-panel", KeyenceSentPanel).log_sent(
+                self.query_one("#keyence-sent-panel", KeyenceComsPanel).log_sent(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
-                self.query_one("#keyence-sent-panel", KeyenceSentPanel).log_received(
+                self.query_one("#keyence-sent-panel", KeyenceComsPanel).log_received(
                     event.message
                 )
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
@@ -170,9 +170,9 @@ class BridgeTuiApp(App):
 
         self.query_one("#status-column", StatusColumn).set_state(state)
 
-        self.query_one("#spc-received-panel", SpcReceivedPanel).set_port(
+        self.query_one("#spc-received-panel", SpcComsPanel).set_port(
             state.spc.port
         )
-        self.query_one("#keyence-sent-panel", KeyenceSentPanel).set_port(
+        self.query_one("#keyence-sent-panel", KeyenceComsPanel).set_port(
             state.keyence.port
         )
