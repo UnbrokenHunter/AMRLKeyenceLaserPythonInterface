@@ -69,9 +69,14 @@ class BridgeController:
 
     def connect(self) -> None:
         try:
+            self._force_stream_off("connecting")
+
             self.state.last_error = None
+
             self.state.keyence.connected = False
             self.state.keyence.state = "Opening port"
+            self.state.spc.connected = False
+            self.state.spc.state = "SPC not connected"
             self._status_changed()
 
             self.input_client.open()
@@ -86,7 +91,7 @@ class BridgeController:
             )
 
             self.state.spc.connected = False
-            self.state.spc.state = "SPC client not connected"
+            self.state.spc.state = "SPC not connected"
 
             self._status_changed()
 
@@ -96,7 +101,7 @@ class BridgeController:
             self.state.spc.connected = False
             self.state.spc.state = "Connection failed"
             self._set_error(error)
-                        
+                                    
     def close(self) -> None:
         try:
             self.stop_stream()
@@ -188,6 +193,36 @@ class BridgeController:
         except Exception as error:
             self._set_error(error)
             
+    def _force_stream_off(self, reason: str) -> None:
+        if not self.state.streaming:
+            return
+
+        try:
+            if hasattr(self.input_client, "stop_streaming"):
+                self.input_client.stop_streaming()  # type: ignore[attr-defined]
+                self._emit(BridgeEventType.KEYENCE_SENT, "NT")
+
+        except Exception as error:
+            self._emit(
+                BridgeEventType.ERROR,
+                f"Failed to stop stream while {reason}: {error}",
+            )
+
+        finally:
+            self.state.streaming = False
+
+            if self.state.keyence.connected:
+                self.state.keyence.state = "Connected"
+            else:
+                self.state.keyence.state = "Disconnected"
+
+            if self.state.spc.connected:
+                self.state.spc.state = "Waiting"
+            else:
+                self.state.spc.state = "SPC not connected"
+
+            self._status_changed()
+
     def poll_stream_once(self) -> None:
         """
         Called by the UI timer for now.
@@ -213,6 +248,8 @@ class BridgeController:
             self._set_error(error)
 
     def set_ports(self, *, keyence_port: str, spc_port: str) -> None:
+        self._force_stream_off("changing ports")
+
         if self.state.keyence.connected:
             self.close()
 
@@ -224,9 +261,19 @@ class BridgeController:
 
         self.input_client = self._create_input_client()
 
-        self._status_changed()
+        self.state.keyence.connected = False
+        self.state.keyence.state = (
+            "Simulator selected" if self.config.use_simulator else "Real hardware selected"
+        )
 
+        self.state.spc.connected = False
+        self.state.spc.state = "SPC not connected"
+
+        self._status_changed()
+        
     def set_simulator(self, enabled: bool) -> None:
+        self._force_stream_off("changing simulator mode")
+
         if self.state.keyence.connected:
             self.close()
 
@@ -239,6 +286,9 @@ class BridgeController:
         self.state.keyence.state = (
             "Simulator selected" if enabled else "Real hardware selected"
         )
+
+        self.state.spc.connected = False
+        self.state.spc.state = "SPC not connected"
 
         self._status_changed()
         

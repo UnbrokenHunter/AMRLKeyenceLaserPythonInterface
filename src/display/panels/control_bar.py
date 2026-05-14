@@ -123,9 +123,10 @@ class ControlBar(Horizontal):
 
     def set_stream_enabled(self, enabled: bool) -> None:
         self.query_one("#stream-toggle", ToggleButton).set_enabled(enabled)
-
+        
     def set_continuous_visible(self, visible: bool) -> None:
         self.query_one("#continuous-toggle", ToggleButton).set_enabled(visible)
 
     def set_simulator_enabled(self, enabled: bool) -> None:
         self.query_one("#simulator-toggle", ToggleButton).set_enabled(enabled)
+    

@@ -9,6 +9,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Footer, Header
 
+from src.display.panels.device_status_panel import DeviceStatusPanel
 from src.bridge.bridge_controller import BridgeController
 from src.bridge.bridge_events import BridgeEventType
 from src.display.panels.continuous_keyence_panel import ContinuousKeyencePanel
@@ -41,8 +42,8 @@ class BridgeTuiApp(App):
             with Horizontal(id="content-row"):
                 with Vertical(id="left-column"):
                     with Horizontal(id="coms-row"):
-                        yield SpcComsPanel(id="spc-received-panel")
-                        yield KeyenceComsPanel(id="keyence-sent-panel")
+                        yield SpcComsPanel(id="spc-coms-panel")
+                        yield KeyenceComsPanel(id="keyence-coms-panel")
 
                     yield ContinuousKeyencePanel(id="continuous-panel")
 
@@ -138,17 +139,17 @@ class BridgeTuiApp(App):
     def _drain_controller_events(self) -> None:
         for event in self.controller.drain_events():
             if event.type == BridgeEventType.SPC_RECEIVED:
-                self.query_one("#spc-received-panel", SpcComsPanel).log_received(
+                self.query_one("#spc-coms-panel", SpcComsPanel).log_received(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_SENT:
-                self.query_one("#keyence-sent-panel", KeyenceComsPanel).log_sent(
+                self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_sent(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
-                self.query_one("#keyence-sent-panel", KeyenceComsPanel).log_received(
+                self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_received(
                     event.message
                 )
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
@@ -164,15 +165,33 @@ class BridgeTuiApp(App):
                 pass
 
         self._refresh_all_panels()
-
+                
     def _refresh_all_panels(self) -> None:
         state = self.controller.state
 
         self.query_one("#status-column", StatusColumn).set_state(state)
 
-        self.query_one("#spc-received-panel", SpcComsPanel).set_port(
+        self.query_one("#spc-coms-panel", SpcComsPanel).set_port(
             state.spc.port
         )
-        self.query_one("#keyence-sent-panel", KeyenceComsPanel).set_port(
+        self.query_one("#keyence-coms-panel", KeyenceComsPanel).set_port(
             state.keyence.port
         )
+
+        control_bar = self.query_one("#controls", ControlBar)
+        control_bar.set_stream_enabled(state.streaming)
+        control_bar.set_continuous_visible(state.continuous_visible)
+        control_bar.set_simulator_enabled(state.use_simulator)
+
+    def on_device_status_panel_port_changed(
+        self,
+        message: DeviceStatusPanel.PortChanged,
+    ) -> None:
+        status_column = self.query_one("#status-column", StatusColumn)
+
+        self.controller.set_ports(
+            keyence_port=status_column.get_keyence_port(),
+            spc_port=status_column.get_spc_port(),
+        )
+
+        self._drain_controller_events()

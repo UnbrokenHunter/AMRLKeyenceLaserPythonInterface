@@ -1,5 +1,3 @@
-"""Right-side column containing status/state panels."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -19,6 +17,7 @@ class StatusColumn(Vertical):
             show_height=True,
             id="keyence-status",
         )
+
         yield DeviceStatusPanel(
             title="SPC Status",
             port_id="spc",
@@ -26,6 +25,7 @@ class StatusColumn(Vertical):
             show_height=False,
             id="spc-status",
         )
+
         yield MiscStatePanel(id="misc-state-panel")
 
     def set_state(self, state: BridgeViewState) -> None:

@@ -46,8 +46,8 @@ Screen {
     margin-top: 1;
 }
 
-#spc-received-panel,
-#keyence-sent-panel {
+#spc-coms-panel,
+#keyence-coms-panel {
     width: 1fr;
     min-height: 16;
 }
