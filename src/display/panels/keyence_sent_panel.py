@@ -1,3 +1,5 @@
+# file: src/display/panels/keyence_sent_panel.py
+
 """Panel that displays Keyence communications."""
 
 from __future__ import annotations
@@ -6,16 +8,24 @@ from datetime import datetime
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.events import Click
 from textual.widgets import Label, RichLog, Static
 
 
 class KeyenceSentPanel(Vertical):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.show_tx = True
+        self.show_rx = True
+
     def compose(self) -> ComposeResult:
         self.add_class("panel")
 
         with Horizontal(classes="panel-title-row"):
             yield Label("Keyence Coms", classes="panel-title")
             yield Static("", id="keyence-coms-port", classes="panel-title-port")
+            yield Static("TX", id="keyence-show-tx", classes="coms-filter-mini enabled")
+            yield Static("RX", id="keyence-show-rx", classes="coms-filter-mini enabled")
 
         yield RichLog(
             id="keyence-sent-log",
@@ -25,17 +35,37 @@ class KeyenceSentPanel(Vertical):
             classes="coms-log",
         )
 
+    def on_click(self, event: Click) -> None:
+        widget_id = event.widget.id if event.widget else None
+
+        if widget_id == "keyence-show-tx":
+            self.show_tx = not self.show_tx
+            self._set_filter_visual("#keyence-show-tx", self.show_tx)
+            event.stop()
+
+        elif widget_id == "keyence-show-rx":
+            self.show_rx = not self.show_rx
+            self._set_filter_visual("#keyence-show-rx", self.show_rx)
+            event.stop()
+
     def set_port(self, port: str) -> None:
         self.query_one("#keyence-coms-port", Static).update(f"({port})")
 
     def log_sent(self, message: str) -> None:
-        self._log("TX", message)
+        if self.show_tx:
+            self._log("TX", message)
 
     def log_received(self, message: str) -> None:
-        self._log("RX", message)
+        if self.show_rx:
+            self._log("RX", message)
 
     def log_command(self, message: str) -> None:
         self.log_sent(message)
+
+    def _set_filter_visual(self, selector: str, enabled: bool) -> None:
+        widget = self.query_one(selector, Static)
+        widget.set_class(enabled, "enabled")
+        widget.set_class(not enabled, "disabled")
 
     def _log(self, direction: str, message: str) -> None:
         self.query_one("#keyence-sent-log", RichLog).write(

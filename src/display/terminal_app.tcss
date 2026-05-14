@@ -132,3 +132,45 @@ RichLog {
     height: auto;
     color: #b8c7d0;
 }
+
+/* Coms panel title row */
+
+.panel-title-row {
+    height: 1;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.panel-title {
+    width: auto;
+    text-style: bold;
+    color: #d7f3ff;
+    content-align: left middle;
+}
+
+.panel-title-port {
+    width: 1fr;
+    color: #7f8c94;
+    margin-left: 1;
+    content-align: left middle;
+}
+
+/* Tiny TX/RX filters */
+
+.coms-filter-mini {
+    width: 4;
+    height: 1;
+    margin-left: 1;
+    content-align: center middle;
+    text-style: bold;
+}
+
+.coms-filter-mini.enabled {
+    background: #1d6f42;
+    color: #ffffff;
+}
+
+.coms-filter-mini.disabled {
+    background: #3a3f44;
+    color: #808890;
+}
