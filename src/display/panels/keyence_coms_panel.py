@@ -14,7 +14,7 @@ class KeyenceComsPanel(Vertical):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.show_tx = True
-        self.show_rx = True
+        self.show_rx = False
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -23,7 +23,7 @@ class KeyenceComsPanel(Vertical):
             yield Label("Keyence Coms", classes="panel-title")
             yield Static("", id="keyence-coms-port", classes="panel-title-port")
             yield Static("TX", id="keyence-show-tx", classes="coms-filter-mini enabled")
-            yield Static("RX", id="keyence-show-rx", classes="coms-filter-mini enabled")
+            yield Static("RX", id="keyence-show-rx", classes="coms-filter-mini disabled")
 
         yield RichLog(
             id="keyence-sent-log",
