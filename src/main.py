@@ -13,6 +13,8 @@ if __name__ == "__main__":
         keyence_port="COM3",
         spc_port="COM9",
         average_samples=5,
+        simulated_base_height_mm=15.0,
+        simulated_noise_std_mm=0.005,
     )
 
     controller = BridgeController(config=config)

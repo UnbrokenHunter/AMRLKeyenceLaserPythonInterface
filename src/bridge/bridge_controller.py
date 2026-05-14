@@ -40,6 +40,10 @@ class BridgeConfig:
     spc_port: str = "COM9"
     average_samples: int = 5
 
+    simulated_base_height_mm: float = 12.000
+    simulated_noise_std_mm: float = 0.002
+    simulated_drift_per_sec_mm: float = 0.0001
+    simulated_invalid_probability: float = 0.0
 
 class BridgeController:
     def __init__(self, config: BridgeConfig) -> None:
@@ -340,6 +344,11 @@ class BridgeController:
     
     def _create_input_client(self) -> InputClient:
         if self.config.use_simulator:
-            return SimulatedInputClient()
+            return SimulatedInputClient(
+                base_height_mm=self.config.simulated_base_height_mm,
+                noise_std_mm=self.config.simulated_noise_std_mm,
+                drift_per_sec_mm=self.config.simulated_drift_per_sec_mm,
+                invalid_probability=self.config.simulated_invalid_probability,
+            )
 
         return KeyenceInputClient(port=self.config.keyence_port)
