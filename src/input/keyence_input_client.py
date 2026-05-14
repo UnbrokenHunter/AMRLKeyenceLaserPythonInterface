@@ -1,24 +1,14 @@
-"""
-Keyence CL-3000 RS-232 input client.
-"""
-
 from __future__ import annotations
 
+import serial
+
 from src.input.input_client import InputClient, InputReading
-from src.input.keyence_protocol import parse_stream_response
-
-try:
-    import serial
-except ImportError:
-    serial = None
-
+from src.input.keyence_protocol import parse_ms3_response, parse_stream_response
 
 CR = "\r"
 
 
 class KeyenceInputClient(InputClient):
-    """Talks to a real Keyence CL-3000 over RS-232."""
-
     def __init__(
         self,
         port: str,
@@ -30,12 +20,9 @@ class KeyenceInputClient(InputClient):
         self.baudrate = baudrate
         self.timeout = timeout
         self.out_no = out_no
-        self._ser = None
+        self._ser: serial.Serial | None = None
 
     def open(self) -> None:
-        if serial is None:
-            raise RuntimeError("pyserial is not installed. Run: pip install pyserial")
-
         self._ser = serial.Serial(
             port=self.port,
             baudrate=self.baudrate,
@@ -63,14 +50,11 @@ class KeyenceInputClient(InputClient):
 
         return raw.decode("ascii", errors="replace").strip()
 
-    def start_streaming(self) -> None:
-        """
-        Start automatic transmission for OUT1 only.
+    def read_once(self) -> InputReading:
+        response = self.send_command(f"MS,3,{self.out_no}")
+        return parse_ms3_response(response)
 
-        NS,3,10000000 means:
-        - 3: value + result info + judgment
-        - 10000000: OUT1 enabled, OUT2-OUT8 disabled
-        """
+    def start_streaming(self) -> None:
         self.expect_response("NS,3,10000000", expected="NS")
 
     def stop_streaming(self) -> None:

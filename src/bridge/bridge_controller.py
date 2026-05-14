@@ -30,7 +30,7 @@ from src.bridge.bridge_events import BridgeEvent, BridgeEventType
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.input.input_client import InputClient
 from src.input.simulated_input_client import SimulatedInputClient
-# from src.input.keyence_input_client import KeyenceInputClient
+from src.input.keyence_input_client import KeyenceInputClient
 
 
 @dataclass
@@ -42,9 +42,10 @@ class BridgeConfig:
 
 
 class BridgeController:
-    def __init__(self, config: BridgeConfig, input_client: InputClient) -> None:
+    def __init__(self, config: BridgeConfig) -> None:
         self.config = config
-        self.input_client = input_client
+        self.input_client: InputClient = self._create_input_client()
+
         self.state = BridgeViewState(
             keyence=DeviceViewState(
                 connected=False,
@@ -60,33 +61,42 @@ class BridgeController:
             ),
             use_simulator=config.use_simulator,
         )
-        self._events: Queue[BridgeEvent] = Queue()
 
+        self._events: Queue[BridgeEvent] = Queue()
     # -------------------------------------------------------------------------
     # Public API used by UI
     # -------------------------------------------------------------------------
 
     def connect(self) -> None:
         try:
+            self.state.last_error = None
+            self.state.keyence.connected = False
+            self.state.keyence.state = "Opening port"
+            self._status_changed()
+
             self.input_client.open()
-            self.input_client.initialize()
+
+            self._send_keyence_confirmed("R0", expected="R0")
+            self._send_keyence_confirmed("MC,1", expected="MC")
+            self._send_keyence_confirmed("LC,1", expected="LC")
 
             self.state.keyence.connected = True
-            self.state.keyence.state = "Connected (sim)" if self.config.use_simulator else "Connected"
+            self.state.keyence.state = (
+                "Connected (sim)" if self.config.use_simulator else "Connected"
+            )
 
-            # Placeholder until SPC serial client exists.
-            self.state.spc.connected = True
-            self.state.spc.state = "Connected placeholder"
+            self.state.spc.connected = False
+            self.state.spc.state = "SPC client not connected"
 
-            self._emit(BridgeEventType.SPC_RECEIVED, "CONNECT_REQUEST")
-            self._emit(BridgeEventType.KEYENCE_SENT, "R0")
-            self._emit(BridgeEventType.KEYENCE_SENT, "MC,1")
-            self._emit(BridgeEventType.KEYENCE_SENT, "LC,1")
             self._status_changed()
 
         except Exception as error:
+            self.state.keyence.connected = False
+            self.state.keyence.state = "Connection failed"
+            self.state.spc.connected = False
+            self.state.spc.state = "Connection failed"
             self._set_error(error)
-
+                        
     def close(self) -> None:
         try:
             self.stop_stream()
@@ -108,7 +118,10 @@ class BridgeController:
             self.state.keyence.height_mm = reading.value_mm
             self.state.keyence.state = f"Read OK ({reading.judgment})"
             self.state.keyence_rx_count += 1
-            self._emit(BridgeEventType.KEYENCE_SENT, f"MS,3,1 x {self.config.average_samples}")
+            self._emit(
+                BridgeEventType.KEYENCE_SENT,
+                f"MS,3,1 repeated {self.config.average_samples} times",
+            )
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
             self._status_changed()
 
@@ -180,35 +193,35 @@ class BridgeController:
             self._set_error(error)
 
     def set_ports(self, *, keyence_port: str, spc_port: str) -> None:
-        self.config.keyence_port = keyence_port
-        self.config.spc_port = spc_port
-        self.state.keyence.port = keyence_port
-        self.state.spc.port = spc_port
-        self._status_changed()
-
-    def set_simulator(self, enabled: bool) -> None:
-        """
-        Change sim/real mode.
-
-        For now this only swaps to simulator. Uncomment the KeyenceInputClient path
-        when real hardware is enabled.
-        """
-        self.config.use_simulator = enabled
-        self.state.use_simulator = enabled
-
         if self.state.keyence.connected:
             self.close()
 
-        if enabled:
-            self.input_client = SimulatedInputClient()
-            self.state.keyence.state = "Simulator selected"
-        else:
-            # self.input_client = KeyenceInputClient(port=self.config.keyence_port)
-            self.state.keyence.state = "Real hardware not enabled yet"
-            self._emit(BridgeEventType.ERROR, "Real Keyence client is not enabled yet")
+        self.config.keyence_port = keyence_port
+        self.config.spc_port = spc_port
+
+        self.state.keyence.port = keyence_port
+        self.state.spc.port = spc_port
+
+        self.input_client = self._create_input_client()
 
         self._status_changed()
 
+    def set_simulator(self, enabled: bool) -> None:
+        if self.state.keyence.connected:
+            self.close()
+
+        self.config.use_simulator = enabled
+        self.state.use_simulator = enabled
+
+        self.input_client = self._create_input_client()
+
+        self.state.keyence.connected = False
+        self.state.keyence.state = (
+            "Simulator selected" if enabled else "Real hardware selected"
+        )
+
+        self._status_changed()
+        
     def set_continuous_visible(self, visible: bool) -> None:
         self.state.continuous_visible = visible
         self._status_changed()
@@ -240,3 +253,23 @@ class BridgeController:
         self.state.keyence.state = "Error"
         self._events.put(BridgeEvent(BridgeEventType.ERROR, str(error)))
         self._status_changed()
+
+    def _send_keyence_confirmed(self, command: str, expected: str) -> str:
+        self._emit(BridgeEventType.KEYENCE_SENT, command)
+
+        response = self.input_client.send_command(command)
+        self._emit(BridgeEventType.KEYENCE_RECEIVED, response)
+
+        if response != expected:
+            raise RuntimeError(
+                f"Unexpected Keyence response for {command!r}: "
+                f"got {response!r}, expected {expected!r}"
+            )
+
+        return response
+    
+    def _create_input_client(self) -> InputClient:
+        if self.config.use_simulator:
+            return SimulatedInputClient()
+
+        return KeyenceInputClient(port=self.config.keyence_port)
