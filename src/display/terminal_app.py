@@ -152,10 +152,11 @@ class BridgeTuiApp(App):
                 self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_received(
                     event.message
                 )
-                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
-                    event.message
-                )
 
+                continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
+                continuous_panel.log_data(event.message)
+                continuous_panel.add_height(self.controller.state.keyence.height_mm)
+                
             elif event.type == BridgeEventType.ERROR:
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
                     f"ERROR: {event.message}"
