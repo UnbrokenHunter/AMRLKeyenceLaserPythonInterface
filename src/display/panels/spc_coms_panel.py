@@ -1,5 +1,3 @@
-# file: src/display/panels/spc_received_panel.py
-
 """Panel that displays SPC communications."""
 
 from __future__ import annotations

@@ -1,5 +1,3 @@
-# file: src/display/panels/keyence_sent_panel.py
-
 """Panel that displays Keyence communications."""
 
 from __future__ import annotations
