@@ -1,3 +1,5 @@
+/* file: src/display/terminal_app.tcss */
+
 Screen {
     layout: vertical;
     background: #101418;
@@ -56,6 +58,36 @@ Screen {
     width: 55;
 }
 
+RichLog {
+    height: 1fr;
+    border: tall #2d3b44;
+    background: #0e1114;
+}
+
+.coms-log {
+    text-style: dim;
+}
+
+#continuous-row {
+    height: auto;
+}
+
+#continuous-panel {
+    width: 1fr;
+    height: 0;
+    display: none;
+}
+
+#continuous-panel.visible {
+    height: 12;
+    display: block;
+}
+
+#continuous-status-spacer {
+    width: 55;
+    height: 0;
+}
+
 #controls {
     height: 5;
     border: round #4b6475;
@@ -99,14 +131,4 @@ Screen {
 #misc-state {
     height: auto;
     color: #b8c7d0;
-}
-
-#continuous-panel {
-    height: 0;
-    display: none;
-}
-
-#continuous-panel.visible {
-    height: 12;
-    display: block;
 }

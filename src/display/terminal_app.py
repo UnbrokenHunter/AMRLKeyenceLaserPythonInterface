@@ -5,7 +5,7 @@ Main Textual orchestrator.
 from __future__ import annotations
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Footer, Header
 
@@ -38,16 +38,20 @@ class BridgeTuiApp(App):
         yield Header(show_clock=True)
 
         with Container(id="main"):
-            with Horizontal(id="top-row"):
-                yield SpcReceivedPanel(id="spc-received-panel")
-                yield KeyenceSentPanel(id="keyence-sent-panel")
+            with Horizontal(id="content-row"):
+                with Vertical(id="left-column"):
+                    with Horizontal(id="coms-row"):
+                        yield SpcReceivedPanel(id="spc-received-panel")
+                        yield KeyenceSentPanel(id="keyence-sent-panel")
+
+                    yield ContinuousKeyencePanel(id="continuous-panel")
+
                 yield StatusColumn(id="status-column")
 
-            yield ContinuousKeyencePanel(id="continuous-panel")
             yield ControlBar(id="controls")
 
         yield Footer()
-
+                
     def on_mount(self) -> None:
         self.title = "SpiiPlusSPC / Keyence Bridge Interface"
         self.sub_title = "AMRL Gen2 Laser System"
