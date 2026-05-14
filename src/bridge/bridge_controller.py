@@ -130,11 +130,17 @@ class BridgeController:
 
     def start_stream(self) -> None:
         try:
+            if not self.state.keyence.connected:
+                raise RuntimeError("Cannot start stream: Keyence is not connected")
+
             self.state.streaming = True
             self.state.keyence.state = "Streaming"
-            self.state.spc.state = "Receiving stream"
 
-            # If the concrete client supports streaming, use it.
+            if self.state.spc.connected:
+                self.state.spc.state = "Receiving stream"
+            else:
+                self.state.spc.state = "SPC not connected"
+
             if hasattr(self.input_client, "start_streaming"):
                 self.input_client.start_streaming()  # type: ignore[attr-defined]
                 self._emit(BridgeEventType.KEYENCE_SENT, "NS,3,10000000")
@@ -145,16 +151,30 @@ class BridgeController:
             self._status_changed()
 
         except Exception as error:
-            self._set_error(error)
+            self.state.streaming = False
+            self.state.keyence.state = "Stream failed"
 
+            if not self.state.spc.connected:
+                self.state.spc.state = "SPC not connected"
+
+            self._set_error(error)
+            
     def stop_stream(self) -> None:
         if not self.state.streaming:
             return
 
         try:
             self.state.streaming = False
-            self.state.keyence.state = "Connected"
-            self.state.spc.state = "Waiting"
+
+            if self.state.keyence.connected:
+                self.state.keyence.state = "Connected"
+            else:
+                self.state.keyence.state = "Disconnected"
+
+            if self.state.spc.connected:
+                self.state.spc.state = "Waiting"
+            else:
+                self.state.spc.state = "SPC not connected"
 
             if hasattr(self.input_client, "stop_streaming"):
                 self.input_client.stop_streaming()  # type: ignore[attr-defined]
@@ -167,7 +187,7 @@ class BridgeController:
 
         except Exception as error:
             self._set_error(error)
-
+            
     def poll_stream_once(self) -> None:
         """
         Called by the UI timer for now.
