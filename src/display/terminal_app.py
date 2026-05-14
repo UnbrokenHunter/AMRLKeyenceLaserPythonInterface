@@ -19,85 +19,7 @@ from src.display.panels.status_column import StatusColumn
 
 
 class BridgeTuiApp(App):
-    CSS = """
-    Screen {
-        layout: vertical;
-        background: #101418;
-    }
-
-    #main {
-        height: 1fr;
-        padding: 1;
-    }
-
-    #top-row {
-        height: 1fr;
-    }
-
-    .panel {
-        border: round #4b6475;
-        padding: 1;
-        margin: 0 1 1 0;
-        background: #151b21;
-    }
-
-    .panel-title {
-        text-style: bold;
-        color: #d7f3ff;
-        margin-bottom: 1;
-    }
-
-    .status-line {
-        height: 1;
-        margin-bottom: 1;
-    }
-
-    .field-label {
-        color: #9fb6c3;
-        margin-top: 1;
-    }
-
-    #spc-received-panel, #keyence-sent-panel {
-        width: 1fr;
-        min-height: 16;
-    }
-
-    #status-column {
-        width: 42;
-    }
-
-    RichLog {
-        height: 1fr;
-        border: tall #2d3b44;
-        background: #0e1114;
-    }
-
-    #continuous-panel {
-        height: 0;
-        display: none;
-    }
-
-    #continuous-panel.visible {
-        height: 12;
-        display: block;
-    }
-
-    #controls {
-        height: 5;
-        border: round #4b6475;
-        padding: 1;
-        background: #151b21;
-    }
-
-    #misc-state {
-        width: 1fr;
-        padding-left: 2;
-    }
-
-    Button {
-        margin-right: 1;
-    }
-    """
+    CSS_PATH = "terminal_app.tcss"
 
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -133,8 +55,6 @@ class BridgeTuiApp(App):
         self._refresh_all_panels()
         self._drain_controller_events()
 
-        # UI timer. For now, this also polls the simulated stream.
-        # Later, serial work should probably be pushed to a Textual worker/thread.
         self.set_interval(0.1, self._tick)
 
     def on_control_bar_close_requested(self, _: ControlBar.CloseRequested) -> None:
@@ -211,7 +131,9 @@ class BridgeTuiApp(App):
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(event.message)
 
             elif event.type == BridgeEventType.ERROR:
-                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(f"ERROR: {event.message}")
+                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
+                    f"ERROR: {event.message}"
+                )
 
             elif event.type == BridgeEventType.STATUS_CHANGED:
                 pass

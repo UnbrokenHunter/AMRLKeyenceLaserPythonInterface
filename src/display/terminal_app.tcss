@@ -1,0 +1,97 @@
+Screen {
+    layout: vertical;
+    background: #101418;
+}
+
+#main {
+    height: 1fr;
+    padding: 1;
+}
+
+#top-row {
+    height: 1fr;
+}
+
+.panel {
+    border: round #4b6475;
+    padding: 1;
+    margin: 0 1 1 0;
+    background: #151b21;
+}
+
+.panel-title {
+    text-style: bold;
+    color: #d7f3ff;
+    margin-bottom: 1;
+}
+
+.status-line {
+    height: 1;
+    margin-bottom: 1;
+}
+
+.field-label {
+    color: #9fb6c3;
+    margin-top: 1;
+}
+
+#spc-received-panel,
+#keyence-sent-panel {
+    width: 1fr;
+    min-height: 16;
+}
+
+#status-column {
+    width: 42;
+}
+
+RichLog {
+    height: 1fr;
+    border: tall #2d3b44;
+    background: #0e1114;
+}
+
+#continuous-panel {
+    height: 0;
+    display: none;
+}
+
+#continuous-panel.visible {
+    height: 12;
+    display: block;
+}
+
+#controls {
+    height: 7;
+    border: round #4b6475;
+    padding: 1;
+    background: #151b21;
+}
+
+.control-bar {
+    height: 7;
+}
+
+.labeled-switch {
+    width: 24;
+    height: 5;
+    margin: 0 1;
+    content-align: center middle;
+}
+
+.switch-label {
+    height: 1;
+    color: #d7f3ff;
+    text-style: bold;
+    content-align: center middle;
+}
+
+#misc-state {
+    width: 1fr;
+    padding-left: 2;
+    content-align: left middle;
+}
+
+Button {
+    margin-right: 1;
+}
