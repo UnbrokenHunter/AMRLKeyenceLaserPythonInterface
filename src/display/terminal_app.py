@@ -70,21 +70,22 @@ class BridgeTuiApp(App):
         self.controller.read_once()
         self._drain_controller_events()
 
-    def on_control_bar_start_stream_requested(self, _: ControlBar.StartStreamRequested) -> None:
-        self.controller.start_stream()
-        self._drain_controller_events()
+    def on_control_bar_stream_toggle_changed(
+        self,
+        message: ControlBar.StreamToggleChanged,
+    ) -> None:
+        if message.enabled:
+            self.controller.start_stream()
+        else:
+            self.controller.stop_stream()
 
-    def on_control_bar_stop_stream_requested(self, _: ControlBar.StopStreamRequested) -> None:
-        self.controller.stop_stream()
         self._drain_controller_events()
-
+        
     def on_control_bar_continuous_visibility_changed(
         self,
         message: ControlBar.ContinuousVisibilityChanged,
     ) -> None:
-        self.show_continuous = message.visible
-        self.controller.set_continuous_visible(message.visible)
-        self._drain_controller_events()
+        self._set_continuous_panel_visible(message.visible)
 
     def on_control_bar_simulator_changed(self, message: ControlBar.SimulatorChanged) -> None:
         self.controller.set_simulator(message.enabled)
@@ -93,12 +94,23 @@ class BridgeTuiApp(App):
     def watch_show_continuous(self, show: bool) -> None:
         panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
         panel.set_class(show, "visible")
+
+        control_bar = self.query_one("#controls", ControlBar)
+        control_bar.set_continuous_visible(show)
+
         self._refresh_all_panels()
 
-    def action_toggle_continuous(self) -> None:
-        self.show_continuous = not self.show_continuous
-        self.controller.set_continuous_visible(self.show_continuous)
+    def _set_continuous_panel_visible(self, visible: bool) -> None:
+        self.show_continuous = visible
+        self.controller.set_continuous_visible(visible)
+
+        control_bar = self.query_one("#controls", ControlBar)
+        control_bar.set_continuous_visible(visible)
+
         self._drain_controller_events()
+
+    def action_toggle_continuous(self) -> None:
+        self._set_continuous_panel_visible(not self.show_continuous)
 
     def action_toggle_simulator(self) -> None:
         self.controller.set_simulator(not self.controller.state.use_simulator)
@@ -122,13 +134,22 @@ class BridgeTuiApp(App):
     def _drain_controller_events(self) -> None:
         for event in self.controller.drain_events():
             if event.type == BridgeEventType.SPC_RECEIVED:
-                self.query_one("#spc-received-panel", SpcReceivedPanel).log_command(event.message)
+                self.query_one("#spc-received-panel", SpcReceivedPanel).log_received(
+                    event.message
+                )
 
             elif event.type == BridgeEventType.KEYENCE_SENT:
-                self.query_one("#keyence-sent-panel", KeyenceSentPanel).log_command(event.message)
+                self.query_one("#keyence-sent-panel", KeyenceSentPanel).log_sent(
+                    event.message
+                )
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
-                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(event.message)
+                self.query_one("#keyence-sent-panel", KeyenceSentPanel).log_received(
+                    event.message
+                )
+                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
+                    event.message
+                )
 
             elif event.type == BridgeEventType.ERROR:
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
@@ -142,5 +163,12 @@ class BridgeTuiApp(App):
 
     def _refresh_all_panels(self) -> None:
         state = self.controller.state
+
         self.query_one("#status-column", StatusColumn).set_state(state)
-        self.query_one("#controls", ControlBar).set_state(state)
+
+        self.query_one("#spc-received-panel", SpcReceivedPanel).set_port(
+            state.spc.port
+        )
+        self.query_one("#keyence-sent-panel", KeyenceSentPanel).set_port(
+            state.keyence.port
+        )

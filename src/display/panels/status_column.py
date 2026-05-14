@@ -1,4 +1,5 @@
-"""Right-side column containing Keyence and SPC status panels."""
+"""Right-side column containing status/state panels."""
+
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -6,6 +7,7 @@ from textual.containers import Vertical
 
 from src.bridge.bridge_state import BridgeViewState
 from src.display.panels.device_status_panel import DeviceStatusPanel
+from src.display.panels.misc_state_panel import MiscStatePanel
 
 
 class StatusColumn(Vertical):
@@ -24,14 +26,15 @@ class StatusColumn(Vertical):
             show_height=False,
             id="spc-status",
         )
+        yield MiscStatePanel(id="misc-state-panel")
 
     def set_state(self, state: BridgeViewState) -> None:
         self.query_one("#keyence-status", DeviceStatusPanel).set_status(state.keyence)
         self.query_one("#spc-status", DeviceStatusPanel).set_status(state.spc)
+        self.query_one("#misc-state-panel", MiscStatePanel).set_state(state)
 
     def get_keyence_port(self) -> str:
         return self.query_one("#keyence-status", DeviceStatusPanel).get_port()
 
     def get_spc_port(self) -> str:
         return self.query_one("#spc-status", DeviceStatusPanel).get_port()
-
