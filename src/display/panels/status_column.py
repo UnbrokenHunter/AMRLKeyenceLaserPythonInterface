@@ -13,7 +13,7 @@ class StatusColumn(Vertical):
         yield DeviceStatusPanel(
             title="Keyence Status",
             port_id="keyence",
-            default_port="COM3",
+            default_port="COM5",
             show_height=True,
             id="keyence-status",
         )

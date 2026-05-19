@@ -1,6 +1,6 @@
 import serial
 
-PORT = "COM3"
+PORT = "COM5"
 BAUD_RATE = 9600
 
 with serial.Serial(PORT, BAUD_RATE, timeout=1) as ser:
