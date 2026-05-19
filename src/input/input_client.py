@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from statistics import mean
 from typing import Optional
 
+from bridge.bridge_events import BridgeEventType
+
 
 @dataclass(frozen=True)
 class InputReading:
@@ -41,7 +43,10 @@ class InputClient(ABC):
     @abstractmethod
     def read_once(self) -> InputReading:
         """Read one processed measurement from the input device."""
-        pass
+        self._emit(
+            BridgeEventType.KEYENCE_SENT,
+            f"MS,3,{self.config.keyence_out_no} repeated {self.config.average_samples} times",
+        )
 
     def initialize(self, emission_on: bool = True) -> None:
         """

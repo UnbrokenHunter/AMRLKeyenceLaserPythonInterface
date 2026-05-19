@@ -36,9 +36,10 @@ from src.input.keyence_input_client import KeyenceInputClient
 @dataclass
 class BridgeConfig:
     use_simulator: bool = True
-    keyence_port: str = "COM3"
+    keyence_port: str = "COM5"
     spc_port: str = "COM9"
     average_samples: int = 5
+    keyence_out_no: int = 2
 
     simulated_base_height_mm: float = 12.000
     simulated_noise_std_mm: float = 0.002
@@ -76,7 +77,6 @@ class BridgeController:
             self._force_stream_off("connecting")
 
             self.state.last_error = None
-
             self.state.keyence.connected = False
             self.state.keyence.state = "Opening port"
             self.state.spc.connected = False
@@ -86,12 +86,26 @@ class BridgeController:
             self.input_client.open()
 
             self._send_keyence_confirmed("R0", expected="R0")
-            self._send_keyence_confirmed("MC,1", expected="MC")
-            self._send_keyence_confirmed("LC,1", expected="LC")
+
+            reading = self.input_client.read_once()
+
+            self._emit(
+                BridgeEventType.KEYENCE_SENT,
+                f"MS,3,{self.config.keyence_out_no}",
+            )
+            self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
+
+            if not reading.ok:
+                raise RuntimeError(
+                    f"Keyence responded, but reading is not OK: {reading.raw}"
+                )
 
             self.state.keyence.connected = True
+            self.state.keyence.height_mm = reading.value_mm
             self.state.keyence.state = (
-                "Connected (sim)" if self.config.use_simulator else "Connected"
+                f"Connected (sim OUT{self.config.keyence_out_no})"
+                if self.config.use_simulator
+                else f"Connected OUT{self.config.keyence_out_no}"
             )
 
             self.state.spc.connected = False
@@ -105,7 +119,7 @@ class BridgeController:
             self.state.spc.connected = False
             self.state.spc.state = "Connection failed"
             self._set_error(error)
-                                    
+                                                
     def close(self) -> None:
         try:
             self.stop_stream()
@@ -351,4 +365,7 @@ class BridgeController:
                 invalid_probability=self.config.simulated_invalid_probability,
             )
 
-        return KeyenceInputClient(port=self.config.keyence_port)
+        return KeyenceInputClient(
+            port=self.config.keyence_port,
+            out_no=self.config.keyence_out_no,
+        )
