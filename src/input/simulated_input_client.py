@@ -12,7 +12,11 @@ import random
 import time
 
 from src.input.input_client import InputClient, InputReading
-from src.input.keyence_protocol import format_keyence_value, parse_ms3_response, parse_stream_response
+from src.input.keyence_protocol import (
+    format_keyence_value,
+    parse_ms3_response,
+    parse_stream_response,
+)
 
 
 class SimulatedInputClient(InputClient):
@@ -22,11 +26,13 @@ class SimulatedInputClient(InputClient):
         noise_std_mm: float = 0.002,
         drift_per_sec_mm: float = 0.0001,
         invalid_probability: float = 0.0,
+        out_no: int = 2,
     ) -> None:
         self.base_height_mm = base_height_mm
         self.noise_std_mm = noise_std_mm
         self.drift_per_sec_mm = drift_per_sec_mm
         self.invalid_probability = invalid_probability
+        self.out_no = out_no
 
         self.measurement_mode = True
         self.measurement_on = True
@@ -59,12 +65,13 @@ class SimulatedInputClient(InputClient):
             self.emission_on = command.endswith(",1")
             return "LC"
 
-        if command == "MS,3,1":
+        if command.startswith("MS,3,"):
             return self._make_ms3_response()
 
-        if command == "NS,3,10000000":
+        if command.startswith("NS,3,"):
             if self.streaming:
                 return "ER,84"
+
             self.streaming = True
             return "NS"
 
@@ -75,29 +82,56 @@ class SimulatedInputClient(InputClient):
         return "ER,02"
 
     def read_once(self) -> InputReading:
-        response = self.send_command("MS,3,1")
+        response = self.send_command(self.read_command())
         return parse_ms3_response(response)
 
+    def read_command(self) -> str:
+        return f"MS,3,{self.out_no}"
+
     def start_streaming(self) -> None:
-        self.expect_response("NS,3,10000000", expected="NS")
+        self.expect_response(self.stream_command(), expected="NS")
+        self.streaming = True
 
     def stop_streaming(self) -> None:
         self.expect_response("NT", expected="NT")
+        self.streaming = False
 
     def read_stream_line(self) -> InputReading:
         if not self.streaming:
-            raise RuntimeError("Simulator is not streaming. Call start_streaming() first.")
+            raise RuntimeError("Simulator automatic transmission is not active")
 
         line = self._make_stream_response()
         return parse_stream_response(line)
 
+    def stream_command(self) -> str:
+        return f"NS,3,{self._out_mask(self.out_no)}"
+
+    @staticmethod
+    def _out_mask(out_no: int) -> str:
+        if not 1 <= out_no <= 8:
+            raise ValueError(f"Invalid OUT number: {out_no}")
+
+        bits = ["0"] * 8
+        bits[out_no - 1] = "1"
+        return "".join(bits)
+
     def _make_ms3_response(self) -> str:
         reading = self._make_reading()
-        return f"MS,{format_keyence_value(reading.value_mm)},{reading.result_info},{reading.judgment}"
+        return (
+            f"MS,{format_keyence_value(reading.value_mm)},"
+            f"{reading.result_info},{reading.judgment}"
+        )
 
     def _make_stream_response(self) -> str:
         reading = self._make_reading()
-        return f"NS,{format_keyence_value(reading.value_mm)},{reading.result_info},{reading.judgment}"
+
+        # Automatic-transmission stream line.
+        # This parser also supports lines without the NS prefix, but including it
+        # makes the simulator easier to read/debug.
+        return (
+            f"NS,{format_keyence_value(reading.value_mm)},"
+            f"{reading.result_info},{reading.judgment}"
+        )
 
     def _make_reading(self) -> InputReading:
         if not self.measurement_mode or not self.measurement_on or not self.emission_on:
@@ -126,8 +160,10 @@ class SimulatedInputClient(InputClient):
         )
 
         judgment = "GO"
+
         if value > self.base_height_mm + 0.050:
             judgment = "HI"
+
         elif value < self.base_height_mm - 0.050:
             judgment = "LO"
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from rich.text import Text
 from datetime import datetime
 
 from textual.app import ComposeResult
@@ -100,7 +101,7 @@ class ContinuousKeyencePanel(Horizontal):
 
     def log_data(self, message: str) -> None:
         self.query_one("#continuous-keyence-log", RichLog).write(
-            f"[{self._time()}] {message}"
+            Text(str(f"[{self._time()}] {message}"))
         )
 
     def add_height(self, height_mm: float | None) -> None:

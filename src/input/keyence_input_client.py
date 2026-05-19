@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import serial
 
 from src.input.input_client import InputClient, InputReading
@@ -14,13 +16,14 @@ class KeyenceInputClient(InputClient):
         port: str,
         baudrate: int = 115200,
         timeout: float = 1.0,
-        out_no: int = 1,
+        out_no: int = 2,
     ) -> None:
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
         self.out_no = out_no
         self._ser: serial.Serial | None = None
+        self.streaming = False
 
     def open(self) -> None:
         self._ser = serial.Serial(
@@ -32,8 +35,21 @@ class KeyenceInputClient(InputClient):
             timeout=self.timeout,
         )
 
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+
+        # Try to stop any old automatic transmission left from a previous crash/run.
+        self.emergency_stop_streaming()
+        
+
     def close(self) -> None:
         if self._ser is not None:
+            try:
+                if self.streaming:
+                    self.stop_streaming()
+            except Exception:
+                pass
+
             self._ser.close()
             self._ser = None
 
@@ -42,31 +58,184 @@ class KeyenceInputClient(InputClient):
             raise RuntimeError("Serial port is not open")
 
         self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+
         self._ser.write((command + CR).encode("ascii"))
 
         raw = self._ser.read_until(b"\r")
+
         if not raw:
             raise TimeoutError(f"No response from Keyence for command {command!r}")
 
+        try:
+            response = raw.decode("ascii").strip()
+        except UnicodeDecodeError as error:
+            raise RuntimeError(
+                f"Non-ASCII response to {command!r}. "
+                f"raw={raw!r}, hex={raw.hex(' ')}"
+            ) from error
+
+        return response
+
+    def write_command_no_response(self, command: str) -> None:
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        self._ser.write((command + CR).encode("ascii"))
+
+    def read_raw_line(self) -> str:
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        raw = self._ser.read_until(b"\r")
         return raw.decode("ascii", errors="replace").strip()
 
     def read_once(self) -> InputReading:
-        response = self.send_command(f"MS,3,{self.out_no}")
+        response = self.send_command(self.read_command())
         return parse_ms3_response(response)
 
+    def read_command(self) -> str:
+        return f"MS,3,{self.out_no}"
+
     def start_streaming(self) -> None:
-        self.expect_response("NS,3,10000000", expected="NS")
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+
+        response = self.send_command(self.stream_command())
+
+        if response != "NS":
+            raise RuntimeError(
+                f"Unexpected response to {self.stream_command()!r}: "
+                f"got {response!r}, expected 'NS'"
+            )
+
+        self.streaming = True
 
     def stop_streaming(self) -> None:
-        self.expect_response("NT", expected="NT")
+        """
+        Stop Keyence automatic transmission.
+
+        NT acknowledgement can be mixed with queued stream lines, so stopping is
+        best-effort. After stopping, clear remaining stream data from the buffer.
+        """
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        self.write_command_no_response("NT")
+
+        deadline = time.monotonic() + 1.0
+
+        while time.monotonic() < deadline:
+            line = self.read_raw_line()
+
+            if not line:
+                continue
+
+            if line == "NT":
+                break
+
+            # Ignore queued stream lines like:
+            # -01.5887,0,GO
+            continue
+
+        self.streaming = False
+
+        # Important: flush old stream packets so the next MS command gets its own response.
+        time.sleep(0.1)
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+
+    def emergency_stop_streaming(self) -> None:
+        """
+        Best-effort attempt to stop Keyence automatic transmission.
+
+        This does not expect a clean NT response because the serial line may already
+        be flooded with automatic-transmission data.
+        """
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        for _ in range(5):
+            self._ser.write(b"NT\r")
+            self._ser.flush()
+            time.sleep(0.1)
+
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+        self.streaming = False
 
     def read_stream_line(self) -> InputReading:
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
 
-        raw = self._ser.read_until(b"\r")
-        if not raw:
+        if not self.streaming:
+            raise RuntimeError("Keyence automatic transmission is not active")
+
+        line = self.read_raw_line()
+
+        if not line:
             raise TimeoutError("No automatic-transmission data from Keyence")
 
-        line = raw.decode("ascii", errors="replace").strip()
+        # If the stop acknowledgement somehow appears here, skip it.
+        if line == "NT":
+            raise TimeoutError("Received NT while expecting stream data")
+
         return parse_stream_response(line)
+
+    def stream_command(self) -> str:
+        return f"NS,3,{self._out_mask(self.out_no)}"
+    
+    def read_latest_stream_reading(self) -> InputReading:
+        """
+        Read all currently buffered automatic-transmission lines and return the newest one.
+
+        This prevents UI lag when the Keyence streams faster than the Textual UI polls.
+        """
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        if not self.streaming:
+            raise RuntimeError("Keyence automatic transmission is not active")
+
+        latest: InputReading | None = None
+
+        # Always read at least one line.
+        first_line = self.read_raw_line()
+        if not first_line:
+            raise TimeoutError("No automatic-transmission data from Keyence")
+
+        latest = parse_stream_response(first_line)
+
+        # Then drain whatever is already waiting in the serial buffer.
+        # in_waiting = bytes currently waiting in pyserial's receive buffer.
+        while self._ser.in_waiting > 0:
+            line = self.read_raw_line()
+
+            if not line:
+                break
+
+            if line == "NT":
+                continue
+
+            latest = parse_stream_response(line)
+
+        return latest
+
+    @staticmethod
+    def _out_mask(out_no: int) -> str:
+        if not 1 <= out_no <= 8:
+            raise ValueError(f"Invalid OUT number: {out_no}")
+
+        bits = ["0"] * 8
+        bits[out_no - 1] = "1"
+        return "".join(bits)
+    
+    def read_raw_bytes_until_cr(self) -> bytes:
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        return self._ser.read_until(b"\r")
+    

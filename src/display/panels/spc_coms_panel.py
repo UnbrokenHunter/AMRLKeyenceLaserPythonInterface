@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.events import Click
@@ -26,7 +27,7 @@ class SpcComsPanel(Vertical):
             yield Static("RX", id="spc-show-rx", classes="coms-filter-mini enabled")
 
         yield RichLog(
-            id="spc-received-log",
+            id="spc-coms-log",
             wrap=True,
             auto_scroll=True,
             max_lines=500,
@@ -66,8 +67,8 @@ class SpcComsPanel(Vertical):
         widget.set_class(not enabled, "disabled")
 
     def _log(self, direction: str, message: str) -> None:
-        self.query_one("#spc-received-log", RichLog).write(
-            f"[{self._time()}] {direction:<2} | {message}"
+        self.query_one("#spc-coms-log", RichLog).write(
+            Text(f"[{self._time()}] {direction:<2} | {message}")
         )
 
     @staticmethod

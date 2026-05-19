@@ -24,18 +24,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue
-from typing import Optional
 
 from src.bridge.bridge_events import BridgeEvent, BridgeEventType
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.input.input_client import InputClient
-from src.input.simulated_input_client import SimulatedInputClient
 from src.input.keyence_input_client import KeyenceInputClient
+from src.input.simulated_input_client import SimulatedInputClient
 
 
 @dataclass
 class BridgeConfig:
-    use_simulator: bool = True
+    use_simulator: bool = False
     keyence_port: str = "COM5"
     spc_port: str = "COM9"
     average_samples: int = 5
@@ -45,6 +44,7 @@ class BridgeConfig:
     simulated_noise_std_mm: float = 0.002
     simulated_drift_per_sec_mm: float = 0.0001
     simulated_invalid_probability: float = 0.0
+
 
 class BridgeController:
     def __init__(self, config: BridgeConfig) -> None:
@@ -62,12 +62,13 @@ class BridgeController:
                 connected=False,
                 port=config.spc_port,
                 height_mm=None,
-                state="Waiting",
+                state="SPC not connected",
             ),
             use_simulator=config.use_simulator,
         )
 
         self._events: Queue[BridgeEvent] = Queue()
+
     # -------------------------------------------------------------------------
     # Public API used by UI
     # -------------------------------------------------------------------------
@@ -89,10 +90,7 @@ class BridgeController:
 
             reading = self.input_client.read_once()
 
-            self._emit(
-                BridgeEventType.KEYENCE_SENT,
-                f"MS,3,{self.config.keyence_out_no}",
-            )
+            self._emit(BridgeEventType.KEYENCE_SENT, self._read_command_text())
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
 
             if not reading.ok:
@@ -117,9 +115,9 @@ class BridgeController:
             self.state.keyence.connected = False
             self.state.keyence.state = "Connection failed"
             self.state.spc.connected = False
-            self.state.spc.state = "Connection failed"
+            self.state.spc.state = "SPC not connected"
             self._set_error(error)
-                                                
+
     def close(self) -> None:
         try:
             self.stop_stream()
@@ -137,19 +135,32 @@ class BridgeController:
 
     def read_once(self) -> None:
         try:
+            if not self.state.keyence.connected:
+                raise RuntimeError("Cannot read: Keyence is not connected")
+
             reading = self.input_client.read_average(samples=self.config.average_samples)
+
             self.state.keyence.height_mm = reading.value_mm
             self.state.keyence.state = f"Read OK ({reading.judgment})"
             self.state.keyence_rx_count += 1
+
             self._emit(
                 BridgeEventType.KEYENCE_SENT,
-                f"MS,3,1 repeated {self.config.average_samples} times",
+                f"{self._read_command_text()} repeated {self.config.average_samples} times",
             )
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
             self._status_changed()
 
         except Exception as error:
-            self._set_error(error)
+            self.state.keyence.state = "Read failed"
+            self.state.last_error = str(error)
+
+            self._emit(
+                BridgeEventType.ERROR,
+                "Read failed: no valid Keyence measurement. "
+                "Check target distance/alignment or wait for valid data.",
+            )
+            self._status_changed()
 
     def start_stream(self) -> None:
         try:
@@ -164,11 +175,12 @@ class BridgeController:
             else:
                 self.state.spc.state = "SPC not connected"
 
+            self._emit(BridgeEventType.KEYENCE_SENT, self._stream_command_text())
+
             if hasattr(self.input_client, "start_streaming"):
                 self.input_client.start_streaming()  # type: ignore[attr-defined]
-                self._emit(BridgeEventType.KEYENCE_SENT, "NS,3,10000000")
             else:
-                self._emit(BridgeEventType.KEYENCE_SENT, "STREAM_START_PLACEHOLDER")
+                raise RuntimeError("Input client does not support streaming")
 
             self._emit(BridgeEventType.SPC_RECEIVED, "START")
             self._status_changed()
@@ -181,7 +193,8 @@ class BridgeController:
                 self.state.spc.state = "SPC not connected"
 
             self._set_error(error)
-            
+
+
     def stop_stream(self) -> None:
         if not self.state.streaming:
             return
@@ -200,71 +213,48 @@ class BridgeController:
                 self.state.spc.state = "SPC not connected"
 
             if hasattr(self.input_client, "stop_streaming"):
-                self.input_client.stop_streaming()  # type: ignore[attr-defined]
                 self._emit(BridgeEventType.KEYENCE_SENT, "NT")
-            else:
-                self._emit(BridgeEventType.KEYENCE_SENT, "STREAM_STOP_PLACEHOLDER")
+                self.input_client.stop_streaming()  # type: ignore[attr-defined]
 
             self._emit(BridgeEventType.SPC_RECEIVED, "STOP")
             self._status_changed()
 
         except Exception as error:
             self._set_error(error)
-            
-    def _force_stream_off(self, reason: str) -> None:
-        if not self.state.streaming:
-            return
 
-        try:
-            if hasattr(self.input_client, "stop_streaming"):
-                self.input_client.stop_streaming()  # type: ignore[attr-defined]
-                self._emit(BridgeEventType.KEYENCE_SENT, "NT")
-
-        except Exception as error:
-            self._emit(
-                BridgeEventType.ERROR,
-                f"Failed to stop stream while {reason}: {error}",
-            )
-
-        finally:
-            self.state.streaming = False
-
-            if self.state.keyence.connected:
-                self.state.keyence.state = "Connected"
-            else:
-                self.state.keyence.state = "Disconnected"
-
-            if self.state.spc.connected:
-                self.state.spc.state = "Waiting"
-            else:
-                self.state.spc.state = "SPC not connected"
-
-            self._status_changed()
 
     def poll_stream_once(self) -> None:
-        """
-        Called by the UI timer for now.
-
-        Later, this should probably move into a worker/thread so serial reads never
-        block the Textual UI.
-        """
         if not self.state.streaming:
             return
 
         try:
-            if hasattr(self.input_client, "read_stream_line"):
+            if hasattr(self.input_client, "read_latest_stream_reading"):
+                reading = self.input_client.read_latest_stream_reading()  # type: ignore[attr-defined]
+            elif hasattr(self.input_client, "read_stream_line"):
                 reading = self.input_client.read_stream_line()  # type: ignore[attr-defined]
             else:
-                reading = self.input_client.read_once()
+                raise RuntimeError("Input client does not support streaming")
 
-            self.state.keyence.height_mm = reading.value_mm
             self.state.keyence_rx_count += 1
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
+
+            if reading.ok:
+                self.state.keyence.height_mm = reading.value_mm
+                self.state.keyence.state = f"Streaming OK ({reading.judgment})"
+            else:
+                self.state.keyence.state = (
+                    f"Streaming invalid: info={reading.result_info}, "
+                    f"judgment={reading.judgment}"
+                )
+
             self._status_changed()
 
         except Exception as error:
-            self._set_error(error)
-
+            self.state.keyence.state = "Stream read failed"
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"Stream read failed: {error}")
+            self._status_changed()
+                        
     def set_ports(self, *, keyence_port: str, spc_port: str) -> None:
         self._force_stream_off("changing ports")
 
@@ -288,7 +278,7 @@ class BridgeController:
         self.state.spc.state = "SPC not connected"
 
         self._status_changed()
-        
+
     def set_simulator(self, enabled: bool) -> None:
         self._force_stream_off("changing simulator mode")
 
@@ -309,24 +299,57 @@ class BridgeController:
         self.state.spc.state = "SPC not connected"
 
         self._status_changed()
-        
+
     def set_continuous_visible(self, visible: bool) -> None:
         self.state.continuous_visible = visible
         self._status_changed()
 
     def drain_events(self) -> list[BridgeEvent]:
         events: list[BridgeEvent] = []
+
         while not self._events.empty():
             events.append(self._events.get())
+
         return events
 
     # -------------------------------------------------------------------------
     # Internal helpers
     # -------------------------------------------------------------------------
 
+    def _force_stream_off(self, reason: str) -> None:
+        if not self.state.streaming:
+            return
+
+        try:
+            if hasattr(self.input_client, "stop_streaming"):
+                self._emit(BridgeEventType.KEYENCE_SENT, "NT")
+                self.input_client.stop_streaming()  # type: ignore[attr-defined]
+
+        except Exception as error:
+            self._emit(
+                BridgeEventType.ERROR,
+                f"Failed to stop stream while {reason}: {error}",
+            )
+
+        finally:
+            self.state.streaming = False
+
+            if self.state.keyence.connected:
+                self.state.keyence.state = "Connected"
+            else:
+                self.state.keyence.state = "Disconnected"
+
+            if self.state.spc.connected:
+                self.state.spc.state = "Waiting"
+            else:
+                self.state.spc.state = "SPC not connected"
+
+            self._status_changed()
+
     def _emit(self, event_type: BridgeEventType, message: str) -> None:
         if event_type == BridgeEventType.SPC_RECEIVED:
             self.state.spc_rx_count += 1
+
         elif event_type == BridgeEventType.KEYENCE_SENT:
             self.state.keyence_tx_count += 1
 
@@ -339,6 +362,10 @@ class BridgeController:
     def _set_error(self, error: Exception) -> None:
         self.state.last_error = str(error)
         self.state.keyence.state = "Error"
+
+        if not self.state.spc.connected:
+            self.state.spc.state = "SPC not connected"
+
         self._events.put(BridgeEvent(BridgeEventType.ERROR, str(error)))
         self._status_changed()
 
@@ -355,7 +382,19 @@ class BridgeController:
             )
 
         return response
-    
+
+    def _read_command_text(self) -> str:
+        if hasattr(self.input_client, "read_command"):
+            return self.input_client.read_command()  # type: ignore[attr-defined]
+
+        return f"MS,3,{self.config.keyence_out_no}"
+
+    def _stream_command_text(self) -> str:
+        if hasattr(self.input_client, "stream_command"):
+            return self.input_client.stream_command()  # type: ignore[attr-defined]
+
+        return f"NS,3,{self._out_mask(self.config.keyence_out_no)}"
+
     def _create_input_client(self) -> InputClient:
         if self.config.use_simulator:
             return SimulatedInputClient(
@@ -363,9 +402,19 @@ class BridgeController:
                 noise_std_mm=self.config.simulated_noise_std_mm,
                 drift_per_sec_mm=self.config.simulated_drift_per_sec_mm,
                 invalid_probability=self.config.simulated_invalid_probability,
+                out_no=self.config.keyence_out_no,
             )
 
         return KeyenceInputClient(
             port=self.config.keyence_port,
             out_no=self.config.keyence_out_no,
         )
+
+    @staticmethod
+    def _out_mask(out_no: int) -> str:
+        if not 1 <= out_no <= 8:
+            raise ValueError(f"Invalid OUT number: {out_no}")
+
+        bits = ["0"] * 8
+        bits[out_no - 1] = "1"
+        return "".join(bits)

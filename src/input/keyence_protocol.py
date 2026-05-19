@@ -1,18 +1,23 @@
+from __future__ import annotations
+
 from src.input.input_client import InputReading
 
 
 def format_keyence_value(value_mm: float) -> str:
     if value_mm <= -999998.0:
         return "-999999"
+
     return f"{value_mm:+09.3f}"
 
 
 def parse_ms3_response(response: str) -> InputReading:
     parts = response.strip().split(",")
+
     if len(parts) != 4:
-        raise ValueError(f"Unexpected MS,3,1 response: {response!r}")
+        raise ValueError(f"Unexpected MS,3,x response: {response!r}")
 
     command, value_text, result_info_text, judgment = parts
+
     if command != "MS":
         raise ValueError(f"Expected MS response, got: {response!r}")
 

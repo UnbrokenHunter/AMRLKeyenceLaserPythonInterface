@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rich.text import Text
 from datetime import datetime
 
 from textual.app import ComposeResult
@@ -26,7 +27,7 @@ class KeyenceComsPanel(Vertical):
             yield Static("RX", id="keyence-show-rx", classes="coms-filter-mini disabled")
 
         yield RichLog(
-            id="keyence-sent-log",
+            id="keyence-coms-log",
             wrap=True,
             auto_scroll=True,
             max_lines=500,
@@ -66,8 +67,8 @@ class KeyenceComsPanel(Vertical):
         widget.set_class(not enabled, "disabled")
 
     def _log(self, direction: str, message: str) -> None:
-        self.query_one("#keyence-sent-log", RichLog).write(
-            f"[{self._time()}] {direction:<2} | {message}"
+        self.query_one("#keyence-coms-log", RichLog).write(
+            Text(f"[{self._time()}] {direction:<2} | {message}")
         )
 
     @staticmethod

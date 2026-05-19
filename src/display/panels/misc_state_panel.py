@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Label, Static
@@ -17,11 +18,26 @@ class MiscStatePanel(Vertical):
 
     def set_state(self, state: BridgeViewState) -> None:
         self.query_one("#misc-state", Static).update(
-            f"Simulator: {'ON' if state.use_simulator else 'OFF'}\n"
-            f"Streaming: {'ON' if state.streaming else 'OFF'}\n"
-            f"Raw panel: {'shown' if state.continuous_visible else 'hidden'}\n"
-            f"SPC RX: {state.spc_rx_count}\n"
-            f"Keyence TX: {state.keyence_tx_count}\n"
-            f"Keyence RX: {state.keyence_rx_count}\n"
-            f"Error: {state.last_error or '--'}"
+            Text(
+                f"Simulator: {'ON' if state.use_simulator else 'OFF'}\n"
+                f"Streaming: {'ON' if state.streaming else 'OFF'}\n"
+                f"Raw panel: {'shown' if state.continuous_visible else 'hidden'}\n"
+                f"SPC RX: {state.spc_rx_count}\n"
+                f"Keyence TX: {state.keyence_tx_count}\n"
+                f"Keyence RX: {state.keyence_rx_count}\n"
+                f"Error: {self._format_error(state.last_error)}"
+            )
         )
+
+    @staticmethod
+    def _format_error(error: str | None) -> str:
+        if not error:
+            return "--"
+
+        error = error.replace("\n", " ")
+
+        max_len = 120
+        if len(error) > max_len:
+            return error[:max_len] + "..."
+
+        return error
