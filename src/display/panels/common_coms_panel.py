@@ -8,6 +8,7 @@ Owns:
 - command comments/descriptions
 - command send hook
 - received-data hook
+- terminal-style command typing
 
 Child classes only provide:
 - title
@@ -26,7 +27,7 @@ from typing import Callable
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.events import Click
+from textual.events import Click, Key
 from textual.message import Message
 from textual.widgets import Label, RichLog, Static
 
@@ -96,6 +97,9 @@ class CommonComsPanel(Vertical):
 
         self.command_comments = command_comments
 
+        self.can_focus = True
+        self.command_buffer = ""
+
     @property
     def port_id(self) -> str:
         return f"{self.id_prefix}-coms-port"
@@ -116,6 +120,10 @@ class CommonComsPanel(Vertical):
     def log_id(self) -> str:
         return f"{self.id_prefix}-coms-log"
 
+    @property
+    def prompt_id(self) -> str:
+        return f"{self.id_prefix}-command-prompt"
+
     def compose(self) -> ComposeResult:
         self.add_class("panel")
 
@@ -126,7 +134,10 @@ class CommonComsPanel(Vertical):
             yield Static(
                 "RAW",
                 id=self.raw_toggle_id,
-                classes=self._toggle_classes(self.raw_mode, extra_class="coms-filter-raw"),
+                classes=self._toggle_classes(
+                    self.raw_mode,
+                    extra_class="coms-filter-raw",
+                ),
             )
 
             yield Static(
@@ -141,15 +152,24 @@ class CommonComsPanel(Vertical):
                 classes=self._toggle_classes(self.show_tx),
             )
 
-        yield RichLog(
-            id=self.log_id,
-            wrap=True,
-            auto_scroll=True,
-            max_lines=500,
-            classes="coms-log",
-        )
+        with Vertical(classes="coms-terminal"):
+            yield RichLog(
+                id=self.log_id,
+                wrap=True,
+                auto_scroll=True,
+                max_lines=500,
+                classes="coms-log",
+            )
 
+            yield Static(
+                "> ",
+                id=self.prompt_id,
+                classes="coms-command-prompt",
+            )
+            
     def on_click(self, event: Click) -> None:
+        self.focus()
+
         widget_id = event.widget.id if event.widget else None
 
         if widget_id == self.tx_toggle_id:
@@ -167,6 +187,42 @@ class CommonComsPanel(Vertical):
         if widget_id == self.raw_toggle_id:
             self.raw_mode = not self.raw_mode
             self._set_filter_visual(f"#{self.raw_toggle_id}", self.raw_mode)
+            event.stop()
+            return
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "enter":
+            command = self.command_buffer.strip()
+
+            if command:
+                self.send_command(command)
+
+            self.command_buffer = ""
+            self._render_prompt()
+            event.stop()
+            return
+
+        if event.key == "backspace":
+            self.command_buffer = self.command_buffer[:-1]
+            self._render_prompt()
+            event.stop()
+            return
+
+        if event.key == "escape":
+            self.command_buffer = ""
+            self._render_prompt()
+            event.stop()
+            return
+
+        if event.key == "space":
+            self.command_buffer += " "
+            self._render_prompt()
+            event.stop()
+            return
+
+        if event.character and len(event.character) == 1:
+            self.command_buffer += event.character
+            self._render_prompt()
             event.stop()
             return
 
@@ -258,9 +314,7 @@ class CommonComsPanel(Vertical):
 
             if command == item.pattern:
                 if callable(item.comment):
-                    raise TypeError(
-                        "Callable command comments require regex=True."
-                    )
+                    raise TypeError("Callable command comments require regex=True.")
 
                 return item.comment
 
@@ -285,6 +339,11 @@ class CommonComsPanel(Vertical):
 
         self.query_one(f"#{self.log_id}", RichLog).write(
             Text(f"[{self._time()}] {display}")
+        )
+
+    def _render_prompt(self) -> None:
+        self.query_one(f"#{self.prompt_id}", Static).update(
+            f"> {self.command_buffer}"
         )
 
     def _set_filter_visual(self, selector: str, enabled: bool) -> None:
