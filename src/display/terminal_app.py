@@ -155,7 +155,7 @@ class BridgeTuiApp(App):
 
                 continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
                 continuous_panel.log_data(event.message)
-                continuous_panel.add_height(self.controller.state.keyence.height_mm)
+                continuous_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
