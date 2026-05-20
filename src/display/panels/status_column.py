@@ -21,7 +21,7 @@ class StatusColumn(Vertical):
         yield DeviceStatusPanel(
             title="SPC Status",
             port_id="spc",
-            default_port="COM9",
+            default_port="COM21",
             show_height=False,
             id="spc-status",
         )

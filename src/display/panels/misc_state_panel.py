@@ -23,6 +23,7 @@ class MiscStatePanel(Vertical):
                 f"Streaming: {'ON' if state.streaming else 'OFF'}\n"
                 f"Raw panel: {'shown' if state.continuous_visible else 'hidden'}\n"
                 f"SPC RX: {state.spc_rx_count}\n"
+                f"SPC TX: {state.spc_tx_count}\n"
                 f"Keyence TX: {state.keyence_tx_count}\n"
                 f"Keyence RX: {state.keyence_rx_count}\n"
                 f"Error: {self._format_error(state.last_error)}"

@@ -8,7 +8,7 @@ if __name__ == "__main__":
     config = BridgeConfig(
         use_simulator=False,
         keyence_port="COM5",
-        spc_port="COM9",
+        spc_port="COM21",
         average_samples=5,
         keyence_out_no=2,
         simulated_base_height_mm=15.0,

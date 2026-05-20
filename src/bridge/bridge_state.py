@@ -33,6 +33,7 @@ class BridgeViewState:
     streaming: bool = False
 
     spc_rx_count: int = 0
+    spc_tx_count: int = 0
     keyence_tx_count: int = 0
     keyence_rx_count: int = 0
 

@@ -143,6 +143,7 @@ class BridgeTuiApp(App):
 
     def _tick(self) -> None:
         self.controller.poll_stream_once()
+        self.controller.poll_spc_once()
         self._drain_controller_events()
 
     def _apply_ports_from_ui(self) -> None:
@@ -155,7 +156,12 @@ class BridgeTuiApp(App):
     def _drain_controller_events(self) -> None:
         for event in self.controller.drain_events():
             if event.type == BridgeEventType.SPC_RECEIVED:
-                self.query_one("#spc-coms-panel", SpcComsPanel).log_received(
+                self.query_one("#spc-coms-panel", SpcComsPanel).receive_data(
+                    event.message
+                )
+
+            elif event.type == BridgeEventType.SPC_SENT:
+                self.query_one("#spc-coms-panel", SpcComsPanel).log_sent(
                     event.message
                 )
 
@@ -174,8 +180,16 @@ class BridgeTuiApp(App):
                 continuous_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
+                self.query_one("#spc-coms-panel", SpcComsPanel).log_system(
+                    f"ERROR: {event.message}"
+                )
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
                     f"ERROR: {event.message}"
+                )
+
+            elif event.type == BridgeEventType.SYSTEM:
+                self.query_one("#spc-coms-panel", SpcComsPanel).log_system(
+                    event.message
                 )
 
             elif event.type == BridgeEventType.STATUS_CHANGED:

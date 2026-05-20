@@ -12,8 +12,10 @@ from enum import Enum, auto
 
 class BridgeEventType(Enum):
     SPC_RECEIVED = auto()
+    SPC_SENT = auto()
     KEYENCE_SENT = auto()
     KEYENCE_RECEIVED = auto()
+    SYSTEM = auto()
     STATUS_CHANGED = auto()
     ERROR = auto()
 
