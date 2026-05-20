@@ -142,8 +142,6 @@ class BridgeController:
 
             self.state.keyence.height_mm = reading.value_mm
             self.state.keyence.state = f"Read OK ({reading.judgment})"
-            self.state.keyence_rx_count += 1
-
             self._emit(
                 BridgeEventType.KEYENCE_SENT,
                 f"{self._read_command_text()} repeated {self.config.average_samples} times",
@@ -235,7 +233,6 @@ class BridgeController:
             else:
                 raise RuntimeError("Input client does not support streaming")
 
-            self.state.keyence_rx_count += 1
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
 
             if reading.ok:
@@ -415,6 +412,9 @@ class BridgeController:
 
         elif event_type == BridgeEventType.KEYENCE_SENT:
             self.state.keyence_tx_count += 1
+
+        elif event_type == BridgeEventType.KEYENCE_RECEIVED:
+            self.state.keyence_rx_count += 1
 
         self._events.put(BridgeEvent(event_type, message))
 
