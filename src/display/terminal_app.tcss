@@ -69,6 +69,18 @@ Screen {
     margin-bottom: 1;
 }
 
+.status-line.connected-ok {
+    background: #1d6f42;
+    color: #ffffff;
+    text-style: bold;
+}
+
+.status-line.connected-bad {
+    background: #7a2020;
+    color: #ffffff;
+    text-style: bold;
+}
+
 .field-label {
     color: #9fb6c3;
     margin-top: 1;

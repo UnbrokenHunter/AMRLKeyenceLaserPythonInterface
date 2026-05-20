@@ -58,7 +58,11 @@ class DeviceStatusPanel(Vertical):
         self.status = status
 
         connected_text = "Connected: YES" if status.connected else "Connected: NO"
-        self.query_one(f"#{self.port_id}-connected", Static).update(connected_text)
+        connected_line = self.query_one(f"#{self.port_id}-connected", Static)
+        connected_line.update(connected_text)
+        connected_line.set_class(status.connected, "connected-ok")
+        connected_line.set_class(not status.connected, "connected-bad")
+
         self.query_one(f"#{self.port_id}-state", Static).update(f"State: {status.state}")
 
         if self.show_height:
