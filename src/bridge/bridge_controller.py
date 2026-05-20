@@ -300,6 +300,69 @@ class BridgeController:
 
         self._status_changed()
 
+    def send_keyence_command(self, command: str, *, emit_sent: bool = True) -> None:
+        """
+        Send a manually entered command to the Keyence device.
+
+        emit_sent=False is used when the UI panel has already logged the TX line.
+        Controller-owned actions should leave emit_sent=True so the UI still sees
+        the command through normal controller events.
+        """
+
+        command = command.strip()
+
+        if not command:
+            return
+
+        try:
+            if not self.state.keyence.connected:
+                raise RuntimeError("Cannot send command: Keyence is not connected")
+
+            if self.state.streaming:
+                raise RuntimeError(
+                    "Cannot send manual Keyence command while streaming is active"
+                )
+
+            if emit_sent:
+                self._emit(BridgeEventType.KEYENCE_SENT, command)
+
+            response = self.input_client.send_command(command)
+            self._emit(BridgeEventType.KEYENCE_RECEIVED, response)
+            self._apply_keyence_response_to_state(response)
+            self._status_changed()
+
+        except Exception as error:
+            self.state.last_error = str(error)
+            self.state.keyence.state = "Manual command failed"
+            self._emit(BridgeEventType.ERROR, f"Keyence command failed: {error}")
+            self._status_changed()
+
+    def send_spc_command(self, command: str, *, emit_sent: bool = True) -> None:
+        """
+        Placeholder for manually entered SPC commands.
+
+        There is no SPC serial client in this controller yet. The comms panel will
+        normally block this while SPC is disconnected. If SPC connection support is
+        added later, wire the actual SPC write/read logic here.
+        """
+
+        command = command.strip()
+
+        if not command:
+            return
+
+        if emit_sent:
+            self._emit(BridgeEventType.SPC_RECEIVED, command)
+
+        if not self.state.spc.connected:
+            self._emit(BridgeEventType.ERROR, "SPC command failed: SPC is not connected")
+            return
+
+        self._emit(
+            BridgeEventType.ERROR,
+            "SPC command failed: manual SPC command routing is not implemented",
+        )
+
     def set_continuous_visible(self, visible: bool) -> None:
         self.state.continuous_visible = visible
         self._status_changed()
@@ -382,6 +445,33 @@ class BridgeController:
             )
 
         return response
+
+    def _apply_keyence_response_to_state(self, response: str) -> None:
+        """Update displayed Keyence state when a manual command returns data."""
+
+        response = response.strip()
+
+        if response.startswith("MS,"):
+            try:
+                from src.input.keyence_protocol import parse_ms3_response
+
+                reading = parse_ms3_response(response)
+                self.state.keyence.height_mm = reading.value_mm
+                self.state.keyence.state = (
+                    f"Manual read OK ({reading.judgment})"
+                    if reading.ok
+                    else f"Manual read invalid ({reading.judgment})"
+                )
+                return
+            except Exception:
+                # Still show the raw response in the comms panel; just don't let
+                # display-state parsing failure hide the actual device response.
+                pass
+
+        if response.startswith("ER,"):
+            self.state.keyence.state = f"Manual command returned error: {response}"
+        else:
+            self.state.keyence.state = f"Manual command response: {response}"
 
     def _read_command_text(self) -> str:
         if hasattr(self.input_client, "read_command"):

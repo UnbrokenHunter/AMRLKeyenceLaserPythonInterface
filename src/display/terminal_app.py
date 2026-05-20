@@ -9,6 +9,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Footer, Header
 
+from src.display.panels.common_coms_panel import CommonComsPanel
 from src.display.panels.device_status_panel import DeviceStatusPanel
 from src.bridge.bridge_controller import BridgeController
 from src.bridge.bridge_events import BridgeEventType
@@ -96,6 +97,21 @@ class BridgeTuiApp(App):
         self.controller.set_simulator(message.enabled)
         self._drain_controller_events()
 
+
+    def on_common_coms_panel_command_submitted(
+        self,
+        message: CommonComsPanel.CommandSubmitted,
+    ) -> None:
+        if isinstance(message.source, KeyenceComsPanel):
+            self.controller.send_keyence_command(message.command, emit_sent=False)
+            self._drain_controller_events()
+            return
+
+        if isinstance(message.source, SpcComsPanel):
+            self.controller.send_spc_command(message.command, emit_sent=False)
+            self._drain_controller_events()
+            return
+
     def watch_show_continuous(self, show: bool) -> None:
         panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
         panel.set_class(show, "visible")
@@ -172,12 +188,13 @@ class BridgeTuiApp(App):
 
         self.query_one("#status-column", StatusColumn).set_state(state)
 
-        self.query_one("#spc-coms-panel", SpcComsPanel).set_port(
-            state.spc.port
-        )
-        self.query_one("#keyence-coms-panel", KeyenceComsPanel).set_port(
-            state.keyence.port
-        )
+        spc_coms_panel = self.query_one("#spc-coms-panel", SpcComsPanel)
+        spc_coms_panel.set_port(state.spc.port)
+        spc_coms_panel.set_connected(state.spc.connected)
+
+        keyence_coms_panel = self.query_one("#keyence-coms-panel", KeyenceComsPanel)
+        keyence_coms_panel.set_port(state.keyence.port)
+        keyence_coms_panel.set_connected(state.keyence.connected)
 
         control_bar = self.query_one("#controls", ControlBar)
         control_bar.set_stream_enabled(state.streaming)
