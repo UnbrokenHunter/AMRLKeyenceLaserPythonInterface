@@ -327,10 +327,12 @@ class CommonComsPanel(Vertical):
         """
 
     def describe_command(self, command: str) -> str | None:
-        command = command.strip()
+        raw_command = command.strip()
 
-        if command == self.NOT_CONNECTED_RESPONSE:
+        if raw_command == self.NOT_CONNECTED_RESPONSE:
             return self.NOT_CONNECTED_COMMENT
+
+        command = raw_command.upper()
 
         for item in self.command_comments:
             if item.regex:
@@ -343,7 +345,7 @@ class CommonComsPanel(Vertical):
 
                 return item.comment
 
-            if command == item.pattern:
+            if command == item.pattern.upper():
                 if callable(item.comment):
                     raise TypeError("Callable command comments require regex=True.")
 
