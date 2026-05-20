@@ -245,15 +245,20 @@ class CommonComsPanel(Vertical):
         Preferred way for UI/controller code to request a command send.
 
         This:
-        1. logs the outgoing command
-        2. refuses sending if not connected
-        3. emits a CommandSubmitted message if connected
-        4. gives child classes a hook if connected
+        1. handles local panel commands like CLS/CLEAR
+        2. logs the outgoing command
+        3. refuses sending if not connected
+        4. emits a CommandSubmitted message if connected
+        5. gives child classes a hook if connected
         """
 
         command = command.strip()
 
         if not command:
+            return
+
+        if command.upper() in {"CLS", "CLEAR"}:
+            self.clear_log()
             return
 
         self.log_sent(command)
@@ -264,7 +269,7 @@ class CommonComsPanel(Vertical):
 
         self.post_message(self.CommandSubmitted(command, self))
         self.after_command_submitted(command)
-
+        
     def receive_data(self, message: str) -> None:
         """
         Preferred way to pass received serial data into the panel.
@@ -292,6 +297,9 @@ class CommonComsPanel(Vertical):
 
     def log_system(self, message: str) -> None:
         self._log("SYS", message)
+
+    def clear_log(self) -> None:
+        self.query_one(f"#{self.log_id}", RichLog).clear()
 
     def log_command(self, message: str) -> None:
         """
