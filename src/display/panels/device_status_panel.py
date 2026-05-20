@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Input, Label, Static
 
@@ -41,8 +41,13 @@ class DeviceStatusPanel(Vertical):
             yield Static("Height: --", id=f"{self.port_id}-height", classes="status-line")
 
         yield Static("State: Idle", id=f"{self.port_id}-state", classes="status-line")
-        yield Label("Port", classes="field-label")
-        yield Input(value=self.status.port, id=f"{self.port_id}-port")
+        with Horizontal(classes="port-row"):
+            yield Label("Port", classes="field-label port-label")
+            yield Input(
+                value=self.status.port,
+                id=f"{self.port_id}-port",
+                classes="port-input",
+            )
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.force_port_refresh = True

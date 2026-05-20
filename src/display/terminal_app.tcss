@@ -86,6 +86,28 @@ Screen {
     margin-top: 1;
 }
 
+.port-row {
+    height: 1;
+    layout: horizontal;
+    align: left middle;
+    margin-top: 1;
+}
+
+.port-label {
+    width: 6;
+    margin-top: 0;
+    content-align: left middle;
+}
+
+.port-input {
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    margin: 0;
+    border: none;
+    content-align: left middle;
+}
+
 #misc-state-panel {
     height: auto;
 }
