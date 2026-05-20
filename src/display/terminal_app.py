@@ -148,9 +148,12 @@ class BridgeTuiApp(App):
 
     def _apply_ports_from_ui(self) -> None:
         status_column = self.query_one("#status-column", StatusColumn)
-        self.controller.set_ports(
+        self.controller.set_connection_config(
             keyence_port=status_column.get_keyence_port(),
             spc_port=status_column.get_spc_port(),
+            keyence_out_no=status_column.get_keyence_out_no(),
+            spc_baudrate=status_column.get_spc_baudrate(),
+            spc_line_ending=status_column.get_spc_line_ending(),
         )
 
     def _drain_controller_events(self) -> None:
@@ -219,11 +222,12 @@ class BridgeTuiApp(App):
         self,
         message: DeviceStatusPanel.PortChanged,
     ) -> None:
-        status_column = self.query_one("#status-column", StatusColumn)
+        self._apply_ports_from_ui()
+        self._drain_controller_events()
 
-        self.controller.set_ports(
-            keyence_port=status_column.get_keyence_port(),
-            spc_port=status_column.get_spc_port(),
-        )
-
+    def on_device_status_panel_setting_changed(
+        self,
+        message: DeviceStatusPanel.SettingChanged,
+    ) -> None:
+        self._apply_ports_from_ui()
         self._drain_controller_events()

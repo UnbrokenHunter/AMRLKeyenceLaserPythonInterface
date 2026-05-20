@@ -32,6 +32,10 @@ class BridgeViewState:
     continuous_visible: bool = False
     streaming: bool = False
 
+    keyence_out_no: int = 2
+    spc_baudrate: int = 9600
+    spc_line_ending: str = "CRLF"
+
     spc_rx_count: int = 0
     spc_tx_count: int = 0
     keyence_tx_count: int = 0

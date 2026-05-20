@@ -70,6 +70,9 @@ class BridgeController:
                 state="SPC not connected",
             ),
             use_simulator=config.use_simulator,
+            keyence_out_no=config.keyence_out_no,
+            spc_baudrate=config.spc_baudrate,
+            spc_line_ending=self._terminator_to_label(config.spc_terminator),
         )
 
         self._events: Queue[BridgeEvent] = Queue()
@@ -288,19 +291,62 @@ class BridgeController:
             self._status_changed()
                         
     def set_ports(self, *, keyence_port: str, spc_port: str) -> None:
+        self.set_connection_config(
+            keyence_port=keyence_port,
+            spc_port=spc_port,
+            keyence_out_no=self.config.keyence_out_no,
+            spc_baudrate=self.config.spc_baudrate,
+            spc_line_ending=self._terminator_to_label(self.config.spc_terminator),
+        )
+
+    def set_connection_config(
+        self,
+        *,
+        keyence_port: str,
+        spc_port: str,
+        keyence_out_no: int | str,
+        spc_baudrate: int | str,
+        spc_line_ending: str,
+    ) -> None:
         self._force_stream_off("changing ports")
 
+        try:
+            keyence_out_no = int(str(keyence_out_no).strip())
+            spc_baudrate = int(str(spc_baudrate).strip())
+
+            if not 1 <= keyence_out_no <= 8:
+                raise ValueError("Keyence OUT must be 1 through 8")
+
+            if spc_baudrate <= 0:
+                raise ValueError("SPC baud rate must be positive")
+
+            spc_terminator = self._line_ending_to_terminator(spc_line_ending)
+
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"Config change failed: {error}")
+            self._status_changed()
+            return
+
         if self.state.keyence.connected:
-            self.close()
+            self.input_client.close()
+
+        if self.state.spc.connected:
+            self.spc_client.disconnect()
 
         self.config.keyence_port = keyence_port
         self.config.spc_port = spc_port
+        self.config.keyence_out_no = keyence_out_no
+        self.config.spc_baudrate = spc_baudrate
+        self.config.spc_terminator = spc_terminator
 
         self.state.keyence.port = keyence_port
         self.state.spc.port = spc_port
+        self.state.keyence_out_no = keyence_out_no
+        self.state.spc_baudrate = spc_baudrate
+        self.state.spc_line_ending = self._terminator_to_label(spc_terminator)
 
         self.input_client = self._create_input_client()
-        self.spc_client.disconnect()
         self.spc_client = self._create_spc_client()
 
         self.state.keyence.connected = False
@@ -663,6 +709,34 @@ class BridgeController:
                 terminator=self.config.spc_terminator,
             )
         )
+
+    @staticmethod
+    def _line_ending_to_terminator(line_ending: str) -> bytes:
+        normalized = line_ending.strip().upper().replace("+", "")
+
+        if normalized == "CRLF":
+            return b"\r\n"
+
+        if normalized == "LF":
+            return b"\n"
+
+        if normalized == "CR":
+            return b"\r"
+
+        raise ValueError("SPC line ending must be CRLF, LF, or CR")
+
+    @staticmethod
+    def _terminator_to_label(terminator: bytes) -> str:
+        if terminator == b"\r\n":
+            return "CRLF"
+
+        if terminator == b"\n":
+            return "LF"
+
+        if terminator == b"\r":
+            return "CR"
+
+        return "CUSTOM"
 
     @staticmethod
     def _out_mask(out_no: int) -> str:
