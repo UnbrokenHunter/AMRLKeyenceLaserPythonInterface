@@ -2,75 +2,27 @@
 
 from __future__ import annotations
 
-from rich.text import Text
-from datetime import datetime
-
-from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
-from textual.events import Click
-from textual.widgets import Label, RichLog, Static
+from .common_coms_panel import CommandComment, CommonComsPanel
 
 
-class KeyenceComsPanel(Vertical):
+class KeyenceComsPanel(CommonComsPanel):
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.show_tx = True
-        self.show_rx = False
-
-    def compose(self) -> ComposeResult:
-        self.add_class("panel")
-
-        with Horizontal(classes="panel-title-row"):
-            yield Label("Keyence Coms", classes="panel-title")
-            yield Static("", id="keyence-coms-port", classes="panel-title-port")
-            yield Static("TX", id="keyence-show-tx", classes="coms-filter-mini enabled")
-            yield Static("RX", id="keyence-show-rx", classes="coms-filter-mini disabled")
-
-        yield RichLog(
-            id="keyence-coms-log",
-            wrap=True,
-            auto_scroll=True,
-            max_lines=500,
-            classes="coms-log",
+        super().__init__(
+            title="Keyence Coms",
+            id_prefix="keyence",
+            default_show_tx=True,
+            default_show_rx=False,
+            default_raw=True,
+            command_comments=[
+                CommandComment("R0", "Reset the Keyence controller"),
+                CommandComment("MC,1", "Set measurement control mode"),
+                CommandComment("LC,1", "Set laser control mode"),
+                CommandComment("TS,1,1", "Start timing/sampling operation"),
+                CommandComment("TS,0,1", "Stop timing/sampling operation"),
+                CommandComment("MS,3,1", "Read measurement data from OUT1"),
+                CommandComment("MS,3,2", "Read measurement data from OUT2"),
+                CommandComment("NT", "Start continuous automatic transmission"),
+            ],
+            *args,
+            **kwargs,
         )
-
-    def on_click(self, event: Click) -> None:
-        widget_id = event.widget.id if event.widget else None
-
-        if widget_id == "keyence-show-tx":
-            self.show_tx = not self.show_tx
-            self._set_filter_visual("#keyence-show-tx", self.show_tx)
-            event.stop()
-
-        elif widget_id == "keyence-show-rx":
-            self.show_rx = not self.show_rx
-            self._set_filter_visual("#keyence-show-rx", self.show_rx)
-            event.stop()
-
-    def set_port(self, port: str) -> None:
-        self.query_one("#keyence-coms-port", Static).update(f"({port})")
-
-    def log_sent(self, message: str) -> None:
-        if self.show_tx:
-            self._log("TX", message)
-
-    def log_received(self, message: str) -> None:
-        if self.show_rx:
-            self._log("RX", message)
-
-    def log_command(self, message: str) -> None:
-        self.log_sent(message)
-
-    def _set_filter_visual(self, selector: str, enabled: bool) -> None:
-        widget = self.query_one(selector, Static)
-        widget.set_class(enabled, "enabled")
-        widget.set_class(not enabled, "disabled")
-
-    def _log(self, direction: str, message: str) -> None:
-        self.query_one("#keyence-coms-log", RichLog).write(
-            Text(f"[{self._time()}] {direction:<2} | {message}")
-        )
-
-    @staticmethod
-    def _time() -> str:
-        return datetime.now().strftime("%H:%M:%S")
