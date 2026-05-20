@@ -96,20 +96,18 @@ class HeightGraphPanel(Vertical):
         grid = [[" " for _ in range(width)] for _ in range(rows)]
 
         for x, sample in enumerate(visible_samples):
-            if sample.valid:
-                value_for_plot = sample.value_mm
-                symbol = "─"
-            else:
-                # Invalid values should appear as x's, but should not rescale the graph.
-                # Put them on the closest edge depending on whether they are below/above range. (DOSNT WORK) TODO fix this
-                value_for_plot = max(min(sample.value_mm, max_value), min_value)
-                symbol = "x"
+            if not sample.valid:
+                # Invalid reading: draw x's across the full height of this time slice.
+                # This avoids pretending we know whether the sensor was too high or too low.
+                for y in range(rows):
+                    grid[y][x] = "x"
+                continue
 
-            normalized = (value_for_plot - min_value) / (max_value - min_value)
+            normalized = (sample.value_mm - min_value) / (max_value - min_value)
             y = rows - 1 - round(normalized * (rows - 1))
             y = max(0, min(rows - 1, y))
 
-            grid[y][x] = symbol
+            grid[y][x] = "─"
 
         lines: list[str] = []
 
