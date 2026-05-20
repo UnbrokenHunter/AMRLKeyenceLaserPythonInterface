@@ -9,6 +9,7 @@ Owns:
 - command send hook
 - received-data hook
 - terminal-style command typing
+- disconnected command blocking
 
 Child classes only provide:
 - title
@@ -58,6 +59,10 @@ class CommandComment:
 
 
 class CommonComsPanel(Vertical):
+    NOT_CONNECTED_RESPONSE = "WARNING: NOT_CONNECTED"
+    NOT_CONNECTED_COMMENT = "Device is not connected"
+    UNKNOWN_COMMENT = "Unknown/undocumented command"
+
     class CommandSubmitted(Message):
         """
         Message emitted when this panel requests that a command be sent.
@@ -79,6 +84,7 @@ class CommonComsPanel(Vertical):
         default_show_tx: bool = True,
         default_show_rx: bool = True,
         default_raw: bool = True,
+        default_connected: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -99,6 +105,8 @@ class CommonComsPanel(Vertical):
 
         self.can_focus = True
         self.command_buffer = ""
+
+        self.connected = default_connected
 
     @property
     def port_id(self) -> str:
@@ -166,7 +174,7 @@ class CommonComsPanel(Vertical):
                 id=self.prompt_id,
                 classes="coms-command-prompt",
             )
-            
+
     def on_click(self, event: Click) -> None:
         self.focus()
 
@@ -229,14 +237,18 @@ class CommonComsPanel(Vertical):
     def set_port(self, port: str) -> None:
         self.query_one(f"#{self.port_id}", Static).update(f"({port})")
 
+    def set_connected(self, connected: bool) -> None:
+        self.connected = connected
+
     def send_command(self, command: str) -> None:
         """
         Preferred way for UI/controller code to request a command send.
 
         This:
         1. logs the outgoing command
-        2. emits a CommandSubmitted message
-        3. gives child classes a hook
+        2. refuses sending if not connected
+        3. emits a CommandSubmitted message if connected
+        4. gives child classes a hook if connected
         """
 
         command = command.strip()
@@ -245,6 +257,11 @@ class CommonComsPanel(Vertical):
             return
 
         self.log_sent(command)
+
+        if not self.connected:
+            self.log_system(self.NOT_CONNECTED_RESPONSE)
+            return
+
         self.post_message(self.CommandSubmitted(command, self))
         self.after_command_submitted(command)
 
@@ -272,6 +289,9 @@ class CommonComsPanel(Vertical):
     def log_received(self, message: str) -> None:
         if self.show_rx:
             self._log("RX", message)
+
+    def log_system(self, message: str) -> None:
+        self._log("SYS", message)
 
     def log_command(self, message: str) -> None:
         """
@@ -301,6 +321,9 @@ class CommonComsPanel(Vertical):
     def describe_command(self, command: str) -> str | None:
         command = command.strip()
 
+        if command == self.NOT_CONNECTED_RESPONSE:
+            return self.NOT_CONNECTED_COMMENT
+
         for item in self.command_comments:
             if item.regex:
                 match = re.fullmatch(item.pattern, command)
@@ -323,16 +346,13 @@ class CommonComsPanel(Vertical):
     def _format_log_message(self, direction: str, message: str) -> str:
         comment = self.describe_command(message)
 
+        if comment is None:
+            comment = self.UNKNOWN_COMMENT
+
         if self.raw_mode:
-            if comment:
-                return f"{direction:<2} | {message}\t# {comment}"
+            return f"{direction:<3} | {message}\t# {comment}"
 
-            return f"{direction:<2} | {message}"
-
-        if comment:
-            return f"{direction:<2} | {comment}"
-
-        return f"{direction:<2} | Unknown/undocumented command"
+        return f"{direction:<3} | {comment}"
 
     def _log(self, direction: str, message: str) -> None:
         display = self._format_log_message(direction, message)
