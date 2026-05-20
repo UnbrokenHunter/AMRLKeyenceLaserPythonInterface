@@ -29,6 +29,7 @@ class DeviceStatusPanel(Vertical):
         self.port_id = port_id
         self.show_height = show_height
         self.status = DeviceViewState(port=default_port)
+        self.force_port_refresh = False
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -44,7 +45,9 @@ class DeviceStatusPanel(Vertical):
         yield Input(value=self.status.port, id=f"{self.port_id}-port")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.force_port_refresh = True
         self._commit_port(event.input.value)
+        event.input.blur()
         event.stop()
 
     def on_input_blurred(self, event: Input.Blurred) -> None:
@@ -66,8 +69,9 @@ class DeviceStatusPanel(Vertical):
 
         # Important:
         # Do NOT constantly overwrite the text box while the user is editing it.
-        if not port_input.has_focus and not port_input.value.strip():
+        if self.force_port_refresh or not port_input.has_focus:
             port_input.value = status.port
+            self.force_port_refresh = False
 
     def get_port(self) -> str:
         return self.query_one(f"#{self.port_id}-port", Input).value.strip()
