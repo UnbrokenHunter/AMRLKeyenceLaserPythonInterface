@@ -247,9 +247,8 @@ class BridgeTuiApp(App):
                 continuous_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
-                self.query_one("#spc-coms-panel", SpcComsPanel).log_system(
-                    f"ERROR: {event.message}"
-                )
+                error_panel = self._error_panel_for_message(event.message)
+                error_panel.log_system(f"ERROR: {event.message}")
                 self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
                     f"ERROR: {event.message}"
                 )
@@ -263,6 +262,17 @@ class BridgeTuiApp(App):
                 pass
 
         self._refresh_all_panels()
+
+    def _error_panel_for_message(self, message: str) -> CommonComsPanel:
+        normalized = message.upper()
+
+        if "SPC" in normalized:
+            return self.query_one("#spc-coms-panel", SpcComsPanel)
+
+        if "KEYENCE" in normalized or "STREAM" in normalized or "READ" in normalized:
+            return self.query_one("#keyence-coms-panel", KeyenceComsPanel)
+
+        return self.query_one("#spc-coms-panel", SpcComsPanel)
                 
     def _refresh_all_panels(self) -> None:
         state = self.controller.state

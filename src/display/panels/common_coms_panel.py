@@ -431,6 +431,9 @@ class CommonComsPanel(Vertical):
         return None
 
     def _format_log_message(self, direction: str, message: str) -> str:
+        if direction == "SYS":
+            return f"{direction:<3} | {message}"
+
         comment = self.describe_command(message)
 
         if comment is None:
