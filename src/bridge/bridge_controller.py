@@ -26,6 +26,10 @@ from datetime import datetime
 from queue import Queue
 
 from src.bridge.bridge_events import BridgeEvent, BridgeEventType
+from src.bridge.spc_commands import (
+    SpcCommandContext,
+    create_default_spc_command_registry,
+)
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.input.input_client import InputClient
 from src.input.keyence_input_client import KeyenceInputClient
@@ -55,6 +59,7 @@ class BridgeController:
         self.config = config
         self.input_client: InputClient = self._create_input_client()
         self.spc_client = self._create_spc_client()
+        self.spc_commands = create_default_spc_command_registry()
 
         self.state = BridgeViewState(
             keyence=DeviceViewState(
@@ -451,37 +456,8 @@ class BridgeController:
             self._emit(BridgeEventType.ERROR, f"SPC send failed: {error}")
             self._status_changed()
 
-    def handle_spc_request(self, message: str) -> str | None:
-        command = message.strip().upper()
-
-        if not command:
-            return None
-
-        if command == "PING":
-            return "PONG"
-
-        if command == "STATUS":
-            height = self._format_latest_height_reply()
-            return (
-                f"KEYENCE_CONNECTED={int(self.state.keyence.connected)};"
-                f"SPC_CONNECTED={int(self.state.spc.connected)};"
-                f"STREAMING={int(self.state.streaming)};"
-                f"HEIGHT={height}"
-            )
-
-        if command in {"GET_HEIGHT", "HEIGHT?"}:
-            return self._format_latest_height_reply()
-
-        if command == "READ_ONCE":
-            return self._read_height_for_spc()
-
-        if command == "START_STREAM":
-            return self._start_stream_for_spc()
-
-        if command == "STOP_STREAM":
-            return self._stop_stream_for_spc()
-
-        return f"ERROR UNKNOWN_COMMAND {message.strip()}"
+    def handle_spc_request(self, message: str) -> str | bytes | None:
+        return self.spc_commands.handle(message, SpcCommandContext(controller=self))
 
     def set_continuous_visible(self, visible: bool) -> None:
         self.state.continuous_visible = visible
@@ -636,6 +612,9 @@ class BridgeController:
 
         return f"{self.state.keyence.height_mm:.5f}"
 
+    def format_latest_height_reply(self) -> str:
+        return self._format_latest_height_reply()
+
     def _read_height_for_spc(self) -> str:
         if not self.state.keyence.connected:
             return "ERROR KEYENCE_NOT_CONNECTED"
@@ -660,8 +639,11 @@ class BridgeController:
         except Exception as error:
             self.state.keyence.state = "SPC read failed"
             self.state.last_error = str(error)
-            self._emit(BridgeEventType.ERROR, f"SPC READ_ONCE failed: {error}")
+            self._emit(BridgeEventType.ERROR, f"SPC READ_HEIGHT failed: {error}")
             return f"ERROR {error}"
+
+    def read_height_for_spc(self) -> str:
+        return self._read_height_for_spc()
 
     def _start_stream_for_spc(self) -> str:
         if self.state.streaming:
@@ -674,6 +656,9 @@ class BridgeController:
 
         return f"ERROR {self.state.last_error or 'STREAM_NOT_STARTED'}"
 
+    def start_stream_for_spc(self) -> str:
+        return self._start_stream_for_spc()
+
     def _stop_stream_for_spc(self) -> str:
         if not self.state.streaming:
             return "OK"
@@ -684,6 +669,9 @@ class BridgeController:
             return "OK"
 
         return f"ERROR {self.state.last_error or 'STREAM_NOT_STOPPED'}"
+
+    def stop_stream_for_spc(self) -> str:
+        return self._stop_stream_for_spc()
 
     def _create_input_client(self) -> InputClient:
         if self.config.use_simulator:
