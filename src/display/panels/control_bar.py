@@ -2,10 +2,36 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Callable
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
 from textual.widgets import Button
+
+
+@dataclass(frozen=True)
+class ActionButtonConfig:
+    label: str
+    button_id: str
+    message_factory: Callable[[], Message]
+    variant: str = "default"
+    classes: str = "control-button"
+
+
+@dataclass(frozen=True)
+class ToggleButtonConfig:
+    label: str
+    button_id: str
+    message_factory: Callable[[bool], Message]
+    default_value: bool = False
+    on_label: str | None = None
+    off_label: str | None = None
+    classes: str = "control-button toggle-button"
+
+
+ControlConfig = ActionButtonConfig | ToggleButtonConfig
 
 
 class ToggleButton(Button):
@@ -86,129 +112,162 @@ class ControlBar(Horizontal):
     def compose(self) -> ComposeResult:
         self.add_class("control-bar")
 
-        with Horizontal(classes="control-group"):
-            yield Button("Close", id="close-button", variant="error", classes="control-button")
-            yield Button("Connect", id="connect-button", variant="primary", classes="control-button")
-            yield ToggleButton(
-                "Simulator",
-                button_id="simulator-toggle",
-                default_value=True,
-                on_label="Simulator: ON",
-                off_label="Simulator: OFF",
-                classes="control-button toggle-button",
-            )
-
-        with Horizontal(classes="control-group"):
-            yield Button("Read", id="read-once-button", classes="control-button")
-            yield ToggleButton(
-                "Keyence Stream",
-                button_id="stream-toggle",
-                default_value=False,
-                on_label="Keyence Stream: ON",
-                off_label="Keyence Stream: OFF",
-                classes="control-button toggle-button",
-            )
-
-        with Horizontal(classes="control-group"):
-            yield ToggleButton(
-                "Height Panel",
-                button_id="continuous-toggle",
-                default_value=False,
-                on_label="Height: ON",
-                off_label="Height: OFF",
-                classes="control-button toggle-button view-toggle",
-            )
-            yield ToggleButton(
-                "Status",
-                button_id="status-toggle",
-                default_value=True,
-                on_label="Status: ON",
-                off_label="Status: OFF",
-                classes="control-button toggle-button view-toggle",
-            )
-            yield ToggleButton(
-                "SPC Coms",
-                button_id="spc-coms-toggle",
-                default_value=True,
-                on_label="SPC: ON",
-                off_label="SPC: OFF",
-                classes="control-button toggle-button view-toggle",
-            )
-            yield ToggleButton(
-                "Keyence Coms",
-                button_id="keyence-coms-toggle",
-                default_value=True,
-                on_label="Keyence: ON",
-                off_label="Keyence: OFF",
-                classes="control-button toggle-button view-toggle",
-            )
-            yield ToggleButton(
-                "SPC Docs",
-                button_id="spc-docs-toggle",
-                default_value=False,
-                on_label="Docs: ON",
-                off_label="Docs: OFF",
-                classes="control-button toggle-button view-toggle",
-            )
+        for group in self._control_groups():
+            with Horizontal(classes="control-group"):
+                for config in group:
+                    yield self._build_control(config)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
 
-        if button_id == "close-button":
-            self.post_message(self.CloseRequested())
+        if button_id is None:
+            return
 
-        elif button_id == "connect-button":
-            self.post_message(self.ConnectRequested())
+        config = self._control_by_id().get(button_id)
 
-        elif button_id == "read-once-button":
-            self.post_message(self.ReadOnceRequested())
+        if config is None:
+            return
 
-        elif button_id == "stream-toggle":
-            enabled = self.query_one("#stream-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.StreamToggleChanged(enabled))
+        if isinstance(config, ActionButtonConfig):
+            self.post_message(config.message_factory())
+            return
 
-        elif button_id == "continuous-toggle":
-            visible = self.query_one("#continuous-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.ContinuousVisibilityChanged(visible))
-
-        elif button_id == "simulator-toggle":
-            enabled = self.query_one("#simulator-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.SimulatorChanged(enabled))
-
-        elif button_id == "status-toggle":
-            visible = self.query_one("#status-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.StatusVisibilityChanged(visible))
-
-        elif button_id == "spc-coms-toggle":
-            visible = self.query_one("#spc-coms-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.SpcComsVisibilityChanged(visible))
-
-        elif button_id == "keyence-coms-toggle":
-            visible = self.query_one("#keyence-coms-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.KeyenceComsVisibilityChanged(visible))
-
-        elif button_id == "spc-docs-toggle":
-            visible = self.query_one("#spc-docs-toggle", ToggleButton).toggle_enabled()
-            self.post_message(self.SpcDocsVisibilityChanged(visible))
+        enabled = self.query_one(f"#{config.button_id}", ToggleButton).toggle_enabled()
+        self.post_message(config.message_factory(enabled))
 
     def set_stream_enabled(self, enabled: bool) -> None:
-        self.query_one("#stream-toggle", ToggleButton).set_enabled(enabled)
+        self._set_toggle_enabled("stream-toggle", enabled)
         
     def set_continuous_visible(self, visible: bool) -> None:
-        self.query_one("#continuous-toggle", ToggleButton).set_enabled(visible)
+        self._set_toggle_enabled("continuous-toggle", visible)
 
     def set_simulator_enabled(self, enabled: bool) -> None:
-        self.query_one("#simulator-toggle", ToggleButton).set_enabled(enabled)
+        self._set_toggle_enabled("simulator-toggle", enabled)
 
     def set_status_visible(self, visible: bool) -> None:
-        self.query_one("#status-toggle", ToggleButton).set_enabled(visible)
+        self._set_toggle_enabled("status-toggle", visible)
 
     def set_spc_coms_visible(self, visible: bool) -> None:
-        self.query_one("#spc-coms-toggle", ToggleButton).set_enabled(visible)
+        self._set_toggle_enabled("spc-coms-toggle", visible)
 
     def set_keyence_coms_visible(self, visible: bool) -> None:
-        self.query_one("#keyence-coms-toggle", ToggleButton).set_enabled(visible)
+        self._set_toggle_enabled("keyence-coms-toggle", visible)
 
     def set_spc_docs_visible(self, visible: bool) -> None:
-        self.query_one("#spc-docs-toggle", ToggleButton).set_enabled(visible)
+        self._set_toggle_enabled("spc-docs-toggle", visible)
+
+    def _set_toggle_enabled(self, button_id: str, enabled: bool) -> None:
+        self.query_one(f"#{button_id}", ToggleButton).set_enabled(enabled)
+
+    def _build_control(self, config: ControlConfig) -> Button:
+        if isinstance(config, ActionButtonConfig):
+            return Button(
+                config.label,
+                id=config.button_id,
+                variant=config.variant,
+                classes=config.classes,
+            )
+
+        return ToggleButton(
+            config.label,
+            button_id=config.button_id,
+            default_value=config.default_value,
+            on_label=config.on_label,
+            off_label=config.off_label,
+            classes=config.classes,
+        )
+
+    def _control_by_id(self) -> dict[str, ControlConfig]:
+        return {
+            config.button_id: config
+            for group in self._control_groups()
+            for config in group
+        }
+
+    def _control_groups(self) -> tuple[tuple[ControlConfig, ...], ...]:
+        view_toggle_classes = "control-button toggle-button view-toggle"
+
+        return (
+            (
+                ActionButtonConfig(
+                    "Close",
+                    "close-button",
+                    self.CloseRequested,
+                    variant="error",
+                ),
+                ActionButtonConfig(
+                    "Connect",
+                    "connect-button",
+                    self.ConnectRequested,
+                    variant="primary",
+                ),
+                ToggleButtonConfig(
+                    "Simulator",
+                    "simulator-toggle",
+                    self.SimulatorChanged,
+                    default_value=True,
+                    on_label="Simulator: ON",
+                    off_label="Simulator: OFF",
+                ),
+            ),
+            (
+                ActionButtonConfig(
+                    "Read",
+                    "read-once-button",
+                    self.ReadOnceRequested,
+                ),
+                ToggleButtonConfig(
+                    "Keyence Stream",
+                    "stream-toggle",
+                    self.StreamToggleChanged,
+                    on_label="Keyence Stream: ON",
+                    off_label="Keyence Stream: OFF",
+                ),
+            ),
+            (
+                ToggleButtonConfig(
+                    "Height Panel",
+                    "continuous-toggle",
+                    self.ContinuousVisibilityChanged,
+                    on_label="Height: ON",
+                    off_label="Height: OFF",
+                    classes=view_toggle_classes,
+                ),
+                ToggleButtonConfig(
+                    "Status",
+                    "status-toggle",
+                    self.StatusVisibilityChanged,
+                    default_value=True,
+                    on_label="Status: ON",
+                    off_label="Status: OFF",
+                    classes=view_toggle_classes,
+                ),
+                ToggleButtonConfig(
+                    "SPC Coms",
+                    "spc-coms-toggle",
+                    self.SpcComsVisibilityChanged,
+                    default_value=True,
+                    on_label="SPC: ON",
+                    off_label="SPC: OFF",
+                    classes=view_toggle_classes,
+                ),
+                ToggleButtonConfig(
+                    "Keyence Coms",
+                    "keyence-coms-toggle",
+                    self.KeyenceComsVisibilityChanged,
+                    default_value=True,
+                    on_label="Keyence: ON",
+                    off_label="Keyence: OFF",
+                    classes=view_toggle_classes,
+                ),
+                ToggleButtonConfig(
+                    "SPC Docs",
+                    "spc-docs-toggle",
+                    self.SpcDocsVisibilityChanged,
+                    on_label="Docs: ON",
+                    off_label="Docs: OFF",
+                    classes=view_toggle_classes,
+                ),
+            ),
+        )
     
