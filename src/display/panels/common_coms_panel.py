@@ -114,6 +114,8 @@ class CommonComsPanel(Vertical):
 
         self.can_focus = True
         self.command_buffer = ""
+        self.command_history: list[str] = []
+        self.history_index: int | None = None
 
         self.connected = default_connected
         self.log_entries: list[ComsLogEntry] = []
@@ -237,14 +239,27 @@ class CommonComsPanel(Vertical):
             command = self.command_buffer.strip()
 
             if command:
+                self._add_command_to_history(command)
                 self.send_command(command)
 
             self.command_buffer = ""
+            self.history_index = None
             self._render_prompt()
             event.stop()
             return
 
+        if event.key == "up":
+            self._move_history(-1)
+            event.stop()
+            return
+
+        if event.key == "down":
+            self._move_history(1)
+            event.stop()
+            return
+
         if event.key == "backspace":
+            self.history_index = None
             self.command_buffer = self.command_buffer[:-1]
             self._render_prompt()
             event.stop()
@@ -252,17 +267,20 @@ class CommonComsPanel(Vertical):
 
         if event.key == "escape":
             self.command_buffer = ""
+            self.history_index = None
             self._render_prompt()
             event.stop()
             return
 
         if event.key == "space":
+            self.history_index = None
             self.command_buffer += " "
             self._render_prompt()
             event.stop()
             return
 
         if event.character and len(event.character) == 1:
+            self.history_index = None
             self.command_buffer += event.character
             self._render_prompt()
             event.stop()
@@ -440,6 +458,32 @@ class CommonComsPanel(Vertical):
         self.query_one(f"#{self.prompt_id}", Static).update(
             f"> {self.command_buffer}"
         )
+
+    def _add_command_to_history(self, command: str) -> None:
+        if self.command_history and self.command_history[-1] == command:
+            return
+
+        self.command_history.append(command)
+
+        if len(self.command_history) > 100:
+            self.command_history = self.command_history[-100:]
+
+    def _move_history(self, direction: int) -> None:
+        if not self.command_history:
+            return
+
+        if self.history_index is None:
+            self.history_index = len(self.command_history)
+
+        self.history_index += direction
+        self.history_index = max(0, min(len(self.command_history), self.history_index))
+
+        if self.history_index == len(self.command_history):
+            self.command_buffer = ""
+        else:
+            self.command_buffer = self.command_history[self.history_index]
+
+        self._render_prompt()
 
     def _set_filter_visual(self, selector: str, enabled: bool) -> None:
         widget = self.query_one(selector, Static)
