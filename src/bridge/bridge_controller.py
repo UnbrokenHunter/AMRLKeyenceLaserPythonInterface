@@ -31,6 +31,7 @@ from src.bridge.spc_commands import (
     create_default_spc_command_registry,
 )
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
+from src.bridge.height_tracking import HeightTrackerManager
 from src.input.input_client import InputClient
 from src.input.keyence_input_client import KeyenceInputClient
 from src.input.simulated_input_client import SimulatedInputClient
@@ -60,6 +61,7 @@ class BridgeController:
         self.input_client: InputClient = self._create_input_client()
         self.spc_client = self._create_spc_client()
         self.spc_commands = create_default_spc_command_registry()
+        self.height_trackers = HeightTrackerManager()
 
         self.state = BridgeViewState(
             keyence=DeviceViewState(
@@ -113,6 +115,7 @@ class BridgeController:
 
             self.state.keyence.connected = True
             self.state.keyence.height_mm = reading.value_mm
+            self._record_height_sample(reading.value_mm)
             self.state.keyence.state = (
                 f"Connected (sim OUT{self.config.keyence_out_no})"
                 if self.config.use_simulator
@@ -157,6 +160,7 @@ class BridgeController:
             reading = self.input_client.read_average(samples=self.config.average_samples)
 
             self.state.keyence.height_mm = reading.value_mm
+            self._record_height_sample(reading.value_mm)
             self.state.keyence.state = f"Read OK ({reading.judgment})"
             self._emit(
                 BridgeEventType.KEYENCE_SENT,
@@ -253,6 +257,7 @@ class BridgeController:
 
             if reading.ok:
                 self.state.keyence.height_mm = reading.value_mm
+                self._record_height_sample(reading.value_mm)
                 self.state.keyence.state = f"Streaming OK ({reading.judgment})"
             else:
                 self.state.keyence.state = (
@@ -559,6 +564,8 @@ class BridgeController:
 
                 reading = parse_ms3_response(response)
                 self.state.keyence.height_mm = reading.value_mm
+                if reading.ok:
+                    self._record_height_sample(reading.value_mm)
                 self.state.keyence.state = (
                     f"Manual read OK ({reading.judgment})"
                     if reading.ok
@@ -615,6 +622,9 @@ class BridgeController:
     def format_latest_height_reply(self) -> str:
         return self._format_latest_height_reply()
 
+    def _record_height_sample(self, value_mm: float) -> None:
+        self.height_trackers.add_sample(value_mm)
+
     def _read_height_for_spc(self) -> str:
         if not self.state.keyence.connected:
             return "ERROR KEYENCE_NOT_CONNECTED"
@@ -626,6 +636,7 @@ class BridgeController:
             reading = self.input_client.read_average(samples=self.config.average_samples)
 
             self.state.keyence.height_mm = reading.value_mm
+            self._record_height_sample(reading.value_mm)
             self.state.keyence.state = f"SPC read OK ({reading.judgment})"
 
             self._emit(

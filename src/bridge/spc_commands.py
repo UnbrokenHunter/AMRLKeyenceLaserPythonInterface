@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, TYPE_CHECKING
 
+from src.bridge.height_tracking import normalize_registry_name
+
 if TYPE_CHECKING:
     from src.bridge.bridge_controller import BridgeController
 
@@ -144,6 +146,49 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 reply_description="OK or ERROR ...",
                 handler=_handle_stop_stream,
             ),
+            SpcCommand(
+                name="START_TRACKING",
+                description="Start appending new valid Keyence heights to a named tracking registry.",
+                reply_description="OK TRACKING_STARTED <registry> COUNT=<n>",
+                handler=_handle_start_tracking,
+            ),
+            SpcCommand(
+                name="STOP_TRACKING",
+                description="Stop appending new heights to a named tracking registry.",
+                reply_description="OK TRACKING_STOPPED <registry> COUNT=<n>",
+                handler=_handle_stop_tracking,
+            ),
+            SpcCommand(
+                name="CLEAR_TRACKING",
+                description="Clear all samples from a named tracking registry.",
+                reply_description="OK TRACKING_CLEARED <registry>",
+                handler=_handle_clear_tracking,
+            ),
+            SpcCommand(
+                name="RETURN_TRACKING",
+                description="Return all samples from a named tracking registry.",
+                reply_description="TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>",
+                handler=_handle_return_tracking,
+            ),
+            SpcCommand(
+                name="AVERAGE_TRACKING",
+                aliases=("AVG_TRACKING",),
+                description="Return the average of samples in a named tracking registry.",
+                reply_description="TRACKING_AVG <registry> <value>, or NO_TRACKING_DATA <registry>",
+                handler=_handle_average_tracking,
+            ),
+            SpcCommand(
+                name="MAX_TRACKING",
+                description="Return the maximum sample in a named tracking registry.",
+                reply_description="TRACKING_MAX <registry> <value>, or NO_TRACKING_DATA <registry>",
+                handler=_handle_max_tracking,
+            ),
+            SpcCommand(
+                name="MIN_TRACKING",
+                description="Return the minimum sample in a named tracking registry.",
+                reply_description="TRACKING_MIN <registry> <value>, or NO_TRACKING_DATA <registry>",
+                handler=_handle_min_tracking,
+            ),
         ]
     )
 
@@ -154,7 +199,7 @@ def parse_spc_message(message: str) -> ParsedSpcMessage | None:
     if not raw:
         return None
 
-    parts = raw.split()
+    parts = raw.replace(",", " ").split()
     name = normalize_command_name(parts[0])
     args = tuple(parts[1:])
 
@@ -213,3 +258,97 @@ def _handle_stop_stream(
     parsed: ParsedSpcMessage,
 ) -> str:
     return context.controller.stop_stream_for_spc()
+
+
+def _handle_start_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.start(registry)
+    count = context.controller.height_trackers.count(registry)
+    return f"OK TRACKING_STARTED {registry} COUNT={count}"
+
+
+def _handle_stop_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.stop(registry)
+    count = context.controller.height_trackers.count(registry)
+    return f"OK TRACKING_STOPPED {registry} COUNT={count}"
+
+
+def _handle_clear_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.clear(registry)
+    return f"OK TRACKING_CLEARED {registry}"
+
+
+def _handle_return_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    samples = context.controller.height_trackers.values(registry)
+    values = ",".join(_format_height_value(sample) for sample in samples)
+    return f"TRACKING {registry} COUNT={len(samples)} VALUES={values}"
+
+
+def _handle_average_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    value = context.controller.height_trackers.average(registry)
+
+    if value is None:
+        return f"NO_TRACKING_DATA {registry}"
+
+    return f"TRACKING_AVG {registry} {_format_height_value(value)}"
+
+
+def _handle_max_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    value = context.controller.height_trackers.maximum(registry)
+
+    if value is None:
+        return f"NO_TRACKING_DATA {registry}"
+
+    return f"TRACKING_MAX {registry} {_format_height_value(value)}"
+
+
+def _handle_min_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    value = context.controller.height_trackers.minimum(registry)
+
+    if value is None:
+        return f"NO_TRACKING_DATA {registry}"
+
+    return f"TRACKING_MIN {registry} {_format_height_value(value)}"
+
+
+def _tracking_registry_arg(parsed: ParsedSpcMessage) -> str:
+    args = list(parsed.args)
+
+    if args and args[0].upper() == "ON":
+        args.pop(0)
+
+    if not args:
+        raise ValueError("Tracking registry argument is required")
+
+    return normalize_registry_name(args[0])
+
+
+def _format_height_value(value: float) -> str:
+    return f"{value:.5f}"
