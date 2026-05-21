@@ -31,6 +31,9 @@ class BridgeTuiApp(App):
     ]
 
     show_continuous: reactive[bool] = reactive(False)
+    show_status: reactive[bool] = reactive(True)
+    show_spc_coms: reactive[bool] = reactive(True)
+    show_keyence_coms: reactive[bool] = reactive(True)
 
     def __init__(self, controller: BridgeController) -> None:
         super().__init__()
@@ -97,6 +100,23 @@ class BridgeTuiApp(App):
         self.controller.set_simulator(message.enabled)
         self._drain_controller_events()
 
+    def on_control_bar_status_visibility_changed(
+        self,
+        message: ControlBar.StatusVisibilityChanged,
+    ) -> None:
+        self.show_status = message.visible
+
+    def on_control_bar_spc_coms_visibility_changed(
+        self,
+        message: ControlBar.SpcComsVisibilityChanged,
+    ) -> None:
+        self.show_spc_coms = message.visible
+
+    def on_control_bar_keyence_coms_visibility_changed(
+        self,
+        message: ControlBar.KeyenceComsVisibilityChanged,
+    ) -> None:
+        self.show_keyence_coms = message.visible
 
     def on_common_coms_panel_command_submitted(
         self,
@@ -120,6 +140,18 @@ class BridgeTuiApp(App):
         control_bar.set_continuous_visible(show)
 
         self._refresh_all_panels()
+
+    def watch_show_status(self, show: bool) -> None:
+        self.query_one("#status-column", StatusColumn).set_class(not show, "hidden")
+        self.query_one("#controls", ControlBar).set_status_visible(show)
+
+    def watch_show_spc_coms(self, show: bool) -> None:
+        self.query_one("#spc-coms-panel", SpcComsPanel).set_class(not show, "hidden")
+        self.query_one("#controls", ControlBar).set_spc_coms_visible(show)
+
+    def watch_show_keyence_coms(self, show: bool) -> None:
+        self.query_one("#keyence-coms-panel", KeyenceComsPanel).set_class(not show, "hidden")
+        self.query_one("#controls", ControlBar).set_keyence_coms_visible(show)
 
     def _set_continuous_panel_visible(self, visible: bool) -> None:
         self.show_continuous = visible
@@ -217,6 +249,9 @@ class BridgeTuiApp(App):
         control_bar.set_stream_enabled(state.streaming)
         control_bar.set_continuous_visible(state.continuous_visible)
         control_bar.set_simulator_enabled(state.use_simulator)
+        control_bar.set_status_visible(self.show_status)
+        control_bar.set_spc_coms_visible(self.show_spc_coms)
+        control_bar.set_keyence_coms_visible(self.show_keyence_coms)
 
         continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
         continuous_panel.set_tracker_sources(

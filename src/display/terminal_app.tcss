@@ -299,7 +299,7 @@ RichLog {
 
 #controls {
     width: 1fr;
-    height: 5;
+    height: 7;
     border: round #4b6475;
     padding: 0 1;
     background: #151b21;
@@ -308,7 +308,16 @@ RichLog {
 
 .control-bar {
     width: 1fr;
+    height: 7;
+    align: left middle;
+}
+
+.control-group {
     height: 5;
+    width: auto;
+    border: tall #2d3b44;
+    padding: 0 1;
+    margin-right: 1;
     align: left middle;
 }
 
@@ -323,6 +332,14 @@ RichLog {
 .toggle-button {
     min-width: 19;
     text-style: bold;
+}
+
+.view-toggle {
+    min-width: 13;
+}
+
+.hidden {
+    display: none;
 }
 
 .toggle-on {
