@@ -58,6 +58,13 @@ class CommandComment:
     regex: bool = False
 
 
+@dataclass(frozen=True)
+class ComsLogEntry:
+    timestamp: str
+    direction: str
+    message: str
+
+
 class CommonComsPanel(Vertical):
     NOT_CONNECTED_RESPONSE = "WARNING: NOT_CONNECTED"
     NOT_CONNECTED_COMMENT = "Device is not connected"
@@ -109,6 +116,8 @@ class CommonComsPanel(Vertical):
         self.command_buffer = ""
 
         self.connected = default_connected
+        self.log_entries: list[ComsLogEntry] = []
+        self.max_log_entries = 500
 
     @property
     def port_id(self) -> str:
@@ -198,24 +207,28 @@ class CommonComsPanel(Vertical):
         if widget_id == self.tx_toggle_id:
             self.show_tx = not self.show_tx
             self._set_filter_visual(f"#{self.tx_toggle_id}", self.show_tx)
+            self._render_log()
             event.stop()
             return
 
         if widget_id == self.rx_toggle_id:
             self.show_rx = not self.show_rx
             self._set_filter_visual(f"#{self.rx_toggle_id}", self.show_rx)
+            self._render_log()
             event.stop()
             return
 
         if widget_id == self.raw_toggle_id:
             self.raw_mode = not self.raw_mode
             self._set_filter_visual(f"#{self.raw_toggle_id}", self.raw_mode)
+            self._render_log()
             event.stop()
             return
 
         if widget_id == self.time_toggle_id:
             self.show_time = not self.show_time
             self._set_filter_visual(f"#{self.time_toggle_id}", self.show_time)
+            self._render_log()
             event.stop()
             return
 
@@ -320,6 +333,7 @@ class CommonComsPanel(Vertical):
         self._log("SYS", message)
 
     def clear_log(self) -> None:
+        self.log_entries.clear()
         self.query_one(f"#{self.log_id}", RichLog).clear()
 
     def log_command(self, message: str) -> None:
@@ -386,12 +400,41 @@ class CommonComsPanel(Vertical):
         return f"{direction:<3} | {comment}"
 
     def _log(self, direction: str, message: str) -> None:
-        display = self._format_log_message(direction, message)
-        prefix = f"[{self._time()}] " if self.show_time else ""
-
-        self.query_one(f"#{self.log_id}", RichLog).write(
-            Text(f"{prefix}{display}")
+        entry = ComsLogEntry(
+            timestamp=self._time(),
+            direction=direction,
+            message=message,
         )
+        self.log_entries.append(entry)
+
+        if len(self.log_entries) > self.max_log_entries:
+            self.log_entries = self.log_entries[-self.max_log_entries :]
+
+        if self._entry_visible(entry):
+            self._write_entry(entry)
+
+    def _render_log(self) -> None:
+        log = self.query_one(f"#{self.log_id}", RichLog)
+        log.clear()
+
+        for entry in self.log_entries:
+            if self._entry_visible(entry):
+                self._write_entry(entry)
+
+    def _write_entry(self, entry: ComsLogEntry) -> None:
+        display = self._format_log_message(entry.direction, entry.message)
+        prefix = f"[{entry.timestamp}] " if self.show_time else ""
+
+        self.query_one(f"#{self.log_id}", RichLog).write(Text(f"{prefix}{display}"))
+
+    def _entry_visible(self, entry: ComsLogEntry) -> bool:
+        if entry.direction == "TX":
+            return self.show_tx
+
+        if entry.direction == "RX":
+            return self.show_rx
+
+        return True
 
     def _render_prompt(self) -> None:
         self.query_one(f"#{self.prompt_id}", Static).update(
