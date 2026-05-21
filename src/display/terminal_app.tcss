@@ -136,6 +136,17 @@ Screen {
     color: #b8c7d0;
 }
 
+#misc-error {
+    height: auto;
+    color: #b8c7d0;
+}
+
+#misc-error.error-active {
+    background: #7a2020;
+    color: #ffffff;
+    text-style: bold;
+}
+
 /* SPC / Keyence coms panels */
 
 #spc-coms-panel,
