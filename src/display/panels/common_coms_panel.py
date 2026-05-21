@@ -83,6 +83,7 @@ class CommonComsPanel(Vertical):
         command_comments: list[CommandComment],
         default_show_tx: bool = True,
         default_show_rx: bool = True,
+        default_show_time: bool = True,
         default_raw: bool = True,
         default_connected: bool = False,
         **kwargs,
@@ -99,6 +100,7 @@ class CommonComsPanel(Vertical):
 
         self.show_tx = default_show_tx
         self.show_rx = default_show_rx
+        self.show_time = default_show_time
         self.raw_mode = default_raw
 
         self.command_comments = command_comments
@@ -125,6 +127,10 @@ class CommonComsPanel(Vertical):
         return f"{self.id_prefix}-show-raw"
 
     @property
+    def time_toggle_id(self) -> str:
+        return f"{self.id_prefix}-show-time"
+
+    @property
     def log_id(self) -> str:
         return f"{self.id_prefix}-coms-log"
 
@@ -145,6 +151,15 @@ class CommonComsPanel(Vertical):
                 classes=self._toggle_classes(
                     self.raw_mode,
                     extra_class="coms-filter-raw",
+                ),
+            )
+
+            yield Static(
+                "TIME",
+                id=self.time_toggle_id,
+                classes=self._toggle_classes(
+                    self.show_time,
+                    extra_class="coms-filter-time",
                 ),
             )
 
@@ -195,6 +210,12 @@ class CommonComsPanel(Vertical):
         if widget_id == self.raw_toggle_id:
             self.raw_mode = not self.raw_mode
             self._set_filter_visual(f"#{self.raw_toggle_id}", self.raw_mode)
+            event.stop()
+            return
+
+        if widget_id == self.time_toggle_id:
+            self.show_time = not self.show_time
+            self._set_filter_visual(f"#{self.time_toggle_id}", self.show_time)
             event.stop()
             return
 
@@ -366,9 +387,10 @@ class CommonComsPanel(Vertical):
 
     def _log(self, direction: str, message: str) -> None:
         display = self._format_log_message(direction, message)
+        prefix = f"[{self._time()}] " if self.show_time else ""
 
         self.query_one(f"#{self.log_id}", RichLog).write(
-            Text(f"[{self._time()}] {display}")
+            Text(f"{prefix}{display}")
         )
 
     def _render_prompt(self) -> None:

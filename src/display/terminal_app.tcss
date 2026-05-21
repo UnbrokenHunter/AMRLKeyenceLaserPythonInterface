@@ -181,6 +181,14 @@ RichLog {
     text-style: bold;
 }
 
+.coms-filter-time {
+    width: 6;
+    height: 1;
+    margin-left: 1;
+    content-align: center middle;
+    text-style: bold;
+}
+
 .coms-filter-mini.enabled {
     background: #1d6f42;
     color: #ffffff;
