@@ -30,6 +30,7 @@ class BridgeTuiApp(App):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("c", "toggle_continuous", "Toggle height panel"),
+        ("d", "toggle_spc_docs", "Toggle SPC docs"),
         ("s", "toggle_simulator", "Toggle simulator"),
         ("r", "read_once", "Read once"),
     ]
@@ -196,6 +197,9 @@ class BridgeTuiApp(App):
 
     def action_toggle_continuous(self) -> None:
         self._set_continuous_panel_visible(not self.show_continuous)
+
+    def action_toggle_spc_docs(self) -> None:
+        self.show_spc_docs = not self.show_spc_docs
 
     def action_toggle_simulator(self) -> None:
         self.controller.set_simulator(not self.controller.state.use_simulator)
