@@ -37,6 +37,9 @@ class HeightTrackerManager:
     def values(self, registry: str) -> list[float]:
         return list(self._get_track(registry).samples)
 
+    def registries(self) -> list[str]:
+        return sorted(self._tracks.keys())
+
     def average(self, registry: str) -> float | None:
         samples = self.values(registry)
         return mean(samples) if samples else None

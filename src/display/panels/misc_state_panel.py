@@ -22,7 +22,7 @@ class MiscStatePanel(Vertical):
             Text(
                 f"Simulator: {'ON' if state.use_simulator else 'OFF'}\n"
                 f"Streaming: {'ON' if state.streaming else 'OFF'}\n"
-                f"Raw panel: {'shown' if state.continuous_visible else 'hidden'}\n"
+                f"Height panel: {'shown' if state.continuous_visible else 'hidden'}\n"
                 f"Keyence OUT: {state.keyence_out_no}\n"
                 f"SPC baud: {state.spc_baudrate}\n"
                 f"SPC line: {state.spc_line_ending}\n"

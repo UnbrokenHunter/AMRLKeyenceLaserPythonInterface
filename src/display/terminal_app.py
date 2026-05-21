@@ -25,7 +25,7 @@ class BridgeTuiApp(App):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("c", "toggle_continuous", "Toggle continuous data"),
+        ("c", "toggle_continuous", "Toggle height panel"),
         ("s", "toggle_simulator", "Toggle simulator"),
         ("r", "read_once", "Read once"),
     ]
@@ -217,6 +217,17 @@ class BridgeTuiApp(App):
         control_bar.set_stream_enabled(state.streaming)
         control_bar.set_continuous_visible(state.continuous_visible)
         control_bar.set_simulator_enabled(state.use_simulator)
+
+        continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
+        continuous_panel.set_tracker_sources(
+            {
+                registry: (
+                    self.controller.height_trackers.is_active(registry),
+                    self.controller.height_trackers.values(registry),
+                )
+                for registry in self.controller.height_trackers.registries()
+            }
+        )
 
     def on_device_status_panel_port_changed(
         self,

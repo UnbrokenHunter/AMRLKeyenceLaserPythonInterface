@@ -80,11 +80,11 @@ class ControlBar(Horizontal):
         )
 
         yield ToggleButton(
-            "Raw Stream",
+            "Height Panel",
             button_id="continuous-toggle",
             default_value=False,
-            on_label="Raw Stream: ON",
-            off_label="Raw Stream: OFF",
+            on_label="Height Panel: ON",
+            off_label="Height Panel: OFF",
             classes="control-button toggle-button",
         )
 
