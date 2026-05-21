@@ -50,7 +50,7 @@ class DeviceStatusPanel(Vertical):
     def compose(self) -> ComposeResult:
         self.add_class("panel")
 
-        yield Label(self.title, classes="panel-title")
+        yield Label(self.title, id=f"{self.port_id}-title", classes="panel-title")
         yield Static("Connected: NO", id=f"{self.port_id}-connected", classes="status-line")
 
         if self.show_height:
@@ -58,7 +58,11 @@ class DeviceStatusPanel(Vertical):
 
         yield Static("State: Idle", id=f"{self.port_id}-state", classes="status-line")
         with Horizontal(classes="port-row"):
-            yield Label("Port", classes="field-label port-label")
+            yield Label(
+                "Port",
+                id=f"{self.port_id}-port-label",
+                classes="field-label port-label",
+            )
             with Horizontal(classes="port-input-shell"):
                 yield Input(
                     value=self.status.port,
@@ -69,7 +73,11 @@ class DeviceStatusPanel(Vertical):
 
         for setting_id, label, default_value in self.settings:
             with Horizontal(classes="port-row"):
-                yield Label(label, classes="field-label port-label")
+                yield Label(
+                    label,
+                    id=f"{self.port_id}-{setting_id}-label",
+                    classes="field-label port-label",
+                )
                 with Horizontal(classes="port-input-shell"):
                     yield Input(
                         value=default_value,

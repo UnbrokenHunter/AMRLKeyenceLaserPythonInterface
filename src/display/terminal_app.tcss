@@ -3,6 +3,15 @@ Screen {
     background: #101418;
 }
 
+#help-footer {
+    height: 1;
+    width: 1fr;
+    padding: 0 1;
+    background: #0e1114;
+    color: #b8c7d0;
+    content-align: left middle;
+}
+
 #main {
     height: 1fr;
     padding: 1;
