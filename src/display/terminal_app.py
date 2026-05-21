@@ -16,6 +16,7 @@ from src.bridge.bridge_events import BridgeEventType
 from src.display.panels.continuous_keyence_panel import ContinuousKeyencePanel
 from src.display.panels.control_bar import ControlBar
 from src.display.panels.keyence_coms_panel import KeyenceComsPanel
+from src.display.panels.spc_command_docs_panel import SpcCommandDocsPanel
 from src.display.panels.spc_coms_panel import SpcComsPanel
 from src.display.panels.status_column import StatusColumn
 
@@ -34,6 +35,7 @@ class BridgeTuiApp(App):
     show_status: reactive[bool] = reactive(True)
     show_spc_coms: reactive[bool] = reactive(True)
     show_keyence_coms: reactive[bool] = reactive(True)
+    show_spc_docs: reactive[bool] = reactive(False)
 
     def __init__(self, controller: BridgeController) -> None:
         super().__init__()
@@ -46,6 +48,7 @@ class BridgeTuiApp(App):
             with Horizontal(id="content-row"):
                 with Vertical(id="left-column"):
                     with Horizontal(id="coms-row"):
+                        yield SpcCommandDocsPanel(id="spc-docs-panel")
                         yield SpcComsPanel(id="spc-coms-panel")
                         yield KeyenceComsPanel(id="keyence-coms-panel")
 
@@ -118,6 +121,12 @@ class BridgeTuiApp(App):
     ) -> None:
         self.show_keyence_coms = message.visible
 
+    def on_control_bar_spc_docs_visibility_changed(
+        self,
+        message: ControlBar.SpcDocsVisibilityChanged,
+    ) -> None:
+        self.show_spc_docs = message.visible
+
     def on_common_coms_panel_command_submitted(
         self,
         message: CommonComsPanel.CommandSubmitted,
@@ -133,8 +142,10 @@ class BridgeTuiApp(App):
             return
 
     def watch_show_continuous(self, show: bool) -> None:
-        panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
-        panel.set_class(show, "visible")
+        self.query_one("#continuous-panel", ContinuousKeyencePanel).set_class(
+            show,
+            "visible",
+        )
 
         control_bar = self.query_one("#controls", ControlBar)
         control_bar.set_continuous_visible(show)
@@ -152,6 +163,13 @@ class BridgeTuiApp(App):
     def watch_show_keyence_coms(self, show: bool) -> None:
         self.query_one("#keyence-coms-panel", KeyenceComsPanel).set_class(not show, "hidden")
         self.query_one("#controls", ControlBar).set_keyence_coms_visible(show)
+
+    def watch_show_spc_docs(self, show: bool) -> None:
+        self.query_one("#spc-docs-panel", SpcCommandDocsPanel).set_class(
+            not show,
+            "hidden",
+        )
+        self.query_one("#controls", ControlBar).set_spc_docs_visible(show)
 
     def _set_continuous_panel_visible(self, visible: bool) -> None:
         self.show_continuous = visible
@@ -252,6 +270,10 @@ class BridgeTuiApp(App):
         control_bar.set_status_visible(self.show_status)
         control_bar.set_spc_coms_visible(self.show_spc_coms)
         control_bar.set_keyence_coms_visible(self.show_keyence_coms)
+        control_bar.set_spc_docs_visible(self.show_spc_docs)
+
+        docs_panel = self.query_one("#spc-docs-panel", SpcCommandDocsPanel)
+        docs_panel.set_commands(self.controller.spc_commands.describe_commands())
 
         continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
         continuous_panel.set_tracker_sources(
@@ -263,6 +285,8 @@ class BridgeTuiApp(App):
                 for registry in self.controller.height_trackers.registries()
             }
         )
+        continuous_panel.set_class(self.show_continuous, "visible")
+        docs_panel.set_class(not self.show_spc_docs, "hidden")
 
     def on_device_status_panel_port_changed(
         self,

@@ -78,6 +78,11 @@ class ControlBar(Horizontal):
             super().__init__()
             self.visible = visible
 
+    class SpcDocsVisibilityChanged(Message):
+        def __init__(self, visible: bool) -> None:
+            super().__init__()
+            self.visible = visible
+
     def compose(self) -> ComposeResult:
         self.add_class("control-bar")
 
@@ -137,6 +142,14 @@ class ControlBar(Horizontal):
                 off_label="Keyence: OFF",
                 classes="control-button toggle-button view-toggle",
             )
+            yield ToggleButton(
+                "SPC Docs",
+                button_id="spc-docs-toggle",
+                default_value=False,
+                on_label="Docs: ON",
+                off_label="Docs: OFF",
+                classes="control-button toggle-button view-toggle",
+            )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -174,6 +187,10 @@ class ControlBar(Horizontal):
             visible = self.query_one("#keyence-coms-toggle", ToggleButton).toggle_enabled()
             self.post_message(self.KeyenceComsVisibilityChanged(visible))
 
+        elif button_id == "spc-docs-toggle":
+            visible = self.query_one("#spc-docs-toggle", ToggleButton).toggle_enabled()
+            self.post_message(self.SpcDocsVisibilityChanged(visible))
+
     def set_stream_enabled(self, enabled: bool) -> None:
         self.query_one("#stream-toggle", ToggleButton).set_enabled(enabled)
         
@@ -191,4 +208,7 @@ class ControlBar(Horizontal):
 
     def set_keyence_coms_visible(self, visible: bool) -> None:
         self.query_one("#keyence-coms-toggle", ToggleButton).set_enabled(visible)
+
+    def set_spc_docs_visible(self, visible: bool) -> None:
+        self.query_one("#spc-docs-toggle", ToggleButton).set_enabled(visible)
     

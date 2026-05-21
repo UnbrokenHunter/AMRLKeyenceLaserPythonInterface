@@ -149,6 +149,7 @@ Screen {
 
 /* SPC / Keyence coms panels */
 
+#spc-docs-panel,
 #spc-coms-panel,
 #keyence-coms-panel {
     width: 1fr;
@@ -243,6 +244,16 @@ RichLog {
 #continuous-panel.visible {
     height: 18;
     display: block;
+}
+
+#spc-command-docs-scroll {
+    height: 1fr;
+    overflow-y: auto;
+}
+
+#spc-command-docs {
+    height: auto;
+    color: #b8c7d0;
 }
 
 .continuous-half-panel {
