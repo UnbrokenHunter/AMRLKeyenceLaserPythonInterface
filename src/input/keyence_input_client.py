@@ -6,6 +6,7 @@ import serial
 
 from src.input.input_client import InputClient, InputReading
 from src.input.keyence_protocol import parse_ms3_response, parse_stream_response
+from src.serial_settings import SerialPortSettings
 
 CR = "\r"
 
@@ -13,27 +14,29 @@ CR = "\r"
 class KeyenceInputClient(InputClient):
     def __init__(
         self,
-        port: str,
+        port: str | None = None,
         baudrate: int = 115200,
         timeout: float = 1.0,
         out_no: int = 2,
+        settings: SerialPortSettings | None = None,
     ) -> None:
-        self.port = port
-        self.baudrate = baudrate
-        self.timeout = timeout
+        if settings is None:
+            if port is None:
+                raise ValueError("Keyence serial port is required")
+
+            settings = SerialPortSettings(
+                port=port,
+                baudrate=baudrate,
+                timeout=timeout,
+            )
+
+        self.settings = settings
         self.out_no = out_no
         self._ser: serial.Serial | None = None
         self.streaming = False
 
     def open(self) -> None:
-        self._ser = serial.Serial(
-            port=self.port,
-            baudrate=self.baudrate,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=self.timeout,
-        )
+        self._ser = serial.Serial(**self.settings.serial_kwargs())
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()

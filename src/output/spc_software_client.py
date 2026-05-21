@@ -6,22 +6,9 @@ opens the Python side of a virtual COM pair and waits for SPC to request data.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import serial
 
-
-@dataclass(frozen=True)
-class SpcSerialSettings:
-    port: str
-    baudrate: int = 9600
-    bytesize: int = serial.EIGHTBITS
-    parity: str = serial.PARITY_NONE
-    stopbits: float = serial.STOPBITS_ONE
-    timeout: float = 0.01
-    write_timeout: float = 0.5
-    terminator: bytes = b"\r\n"
-    read_terminators: tuple[bytes, ...] = (b"\r\n", b"\n", b"\r")
+from src.serial_settings import SpcSerialSettings
 
 
 class SpcSoftwareClient:
@@ -31,15 +18,7 @@ class SpcSoftwareClient:
         self._rx_buffer = bytearray()
 
     def connect(self) -> None:
-        self._ser = serial.Serial(
-            port=self.settings.port,
-            baudrate=self.settings.baudrate,
-            bytesize=self.settings.bytesize,
-            parity=self.settings.parity,
-            stopbits=self.settings.stopbits,
-            timeout=self.settings.timeout,
-            write_timeout=self.settings.write_timeout,
-        )
+        self._ser = serial.Serial(**self.settings.serial_kwargs())
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
         self._rx_buffer.clear()
