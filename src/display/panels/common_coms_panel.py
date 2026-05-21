@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import re
+import textwrap
 from typing import Callable
 
 from rich.text import Text
@@ -91,6 +92,7 @@ class CommonComsPanel(Vertical):
         default_show_tx: bool = True,
         default_show_rx: bool = True,
         default_show_time: bool = True,
+        default_wrap: bool = True,
         default_raw: bool = True,
         default_connected: bool = False,
         **kwargs,
@@ -108,6 +110,7 @@ class CommonComsPanel(Vertical):
         self.show_tx = default_show_tx
         self.show_rx = default_show_rx
         self.show_time = default_show_time
+        self.wrap_text = default_wrap
         self.raw_mode = default_raw
 
         self.command_comments = command_comments
@@ -140,6 +143,10 @@ class CommonComsPanel(Vertical):
     @property
     def time_toggle_id(self) -> str:
         return f"{self.id_prefix}-show-time"
+
+    @property
+    def wrap_toggle_id(self) -> str:
+        return f"{self.id_prefix}-wrap"
 
     @property
     def log_id(self) -> str:
@@ -175,6 +182,15 @@ class CommonComsPanel(Vertical):
             )
 
             yield Static(
+                "WRAP",
+                id=self.wrap_toggle_id,
+                classes=self._toggle_classes(
+                    self.wrap_text,
+                    extra_class="coms-filter-wrap",
+                ),
+            )
+
+            yield Static(
                 "RX",
                 id=self.rx_toggle_id,
                 classes=self._toggle_classes(self.show_rx),
@@ -189,7 +205,7 @@ class CommonComsPanel(Vertical):
         with Vertical(classes="coms-terminal"):
             yield RichLog(
                 id=self.log_id,
-                wrap=True,
+                wrap=self.wrap_text,
                 auto_scroll=True,
                 max_lines=500,
                 classes="coms-log",
@@ -230,6 +246,14 @@ class CommonComsPanel(Vertical):
         if widget_id == self.time_toggle_id:
             self.show_time = not self.show_time
             self._set_filter_visual(f"#{self.time_toggle_id}", self.show_time)
+            self._render_log()
+            event.stop()
+            return
+
+        if widget_id == self.wrap_toggle_id:
+            self.wrap_text = not self.wrap_text
+            self._set_filter_visual(f"#{self.wrap_toggle_id}", self.wrap_text)
+            self.query_one(f"#{self.log_id}", RichLog).wrap = self.wrap_text
             self._render_log()
             event.stop()
             return
@@ -440,7 +464,9 @@ class CommonComsPanel(Vertical):
                 self._write_entry(entry)
 
     def _write_entry(self, entry: ComsLogEntry) -> None:
-        display = self._format_log_message(entry.direction, entry.message)
+        display = self._wrap_display_text(
+            self._format_log_message(entry.direction, entry.message)
+        )
         prefix = f"[{entry.timestamp}] " if self.show_time else ""
 
         self.query_one(f"#{self.log_id}", RichLog).write(Text(f"{prefix}{display}"))
@@ -453,6 +479,21 @@ class CommonComsPanel(Vertical):
             return self.show_rx
 
         return True
+
+    def _wrap_display_text(self, display: str) -> str:
+        if not self.wrap_text:
+            return display
+
+        log = self.query_one(f"#{self.log_id}", RichLog)
+        width = max(20, log.size.width - 4)
+
+        return textwrap.fill(
+            display,
+            width=width,
+            subsequent_indent="    ",
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
 
     def _render_prompt(self) -> None:
         self.query_one(f"#{self.prompt_id}", Static).update(
