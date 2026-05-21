@@ -282,7 +282,7 @@ RichLog {
 }
 
 .height-graph-panel {
-    width: 1fr;
+    width: 3fr;
     height: 1fr;
     padding-left: 1;
 }
