@@ -315,27 +315,25 @@ RichLog {
 .control-group {
     height: 5;
     width: auto;
-    border: tall #2d3b44;
-    padding: 0 1;
-    margin-right: 1;
+    padding: 0;
+    margin-right: 3;
     align: left middle;
 }
 
 .control-button {
-    width: auto;
-    min-width: 8;
+    width: 14;
     height: 3;
     margin-right: 1;
     content-align: center middle;
 }
 
 .toggle-button {
-    min-width: 19;
+    width: 18;
     text-style: bold;
 }
 
 .view-toggle {
-    min-width: 13;
+    width: 13;
 }
 
 .hidden {
