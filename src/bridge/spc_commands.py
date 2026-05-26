@@ -195,6 +195,14 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
+                name="NEXT_LAYER",
+                aliases=("NEXT_SCAN_LAYER",),
+                description="Advance a tracking registry to a new scan layer.",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_next_layer,
+            ),
+            SpcCommand(
                 name="PREPARE",
                 aliases=("PREPARE_TRACKING", "PREPARE_SCAN"),
                 description=(
@@ -295,6 +303,8 @@ _SPC_SPACED_COMMANDS = {
     "START_TRACKING",
     "STOP_TRACKING",
     "CLEAR_TRACKING",
+    "NEXT_LAYER",
+    "NEXT_SCAN_LAYER",
     "PREPARE_TRACKING",
     "PREPARE_SCAN",
     "SAVE_TRACKING",
@@ -408,6 +418,14 @@ def _handle_clear_tracking(
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.clear(registry)
     return SPC_SUCCESS_STATUS
+
+
+def _handle_next_layer(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    return context.controller.next_tracking_layer_for_spc(registry)
 
 
 def _handle_prepare(

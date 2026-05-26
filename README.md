@@ -317,6 +317,7 @@ Graph behavior:
 
 - `LIVE` shows recent samples.
 - tracking registries show the full registry history compressed to fit the panel width.
+- tracking registries can be viewed as all layers or as one selected scan layer.
 
 Displayed statistics:
 
@@ -326,6 +327,8 @@ Displayed statistics:
 - average
 
 The `INV` toggle controls whether invalid readings are included in the graph and CSV export. The `EXPORT CSV` button exports the currently selected source to the project `exports` folder.
+
+The `NEXT LAYER` button advances the selected tracking registry to a new scan layer. It does not assign any physical axis or offset.
 
 The Height panel is for operator visibility. SPC command replies are still handled through the SPC serial request/reply path.
 
@@ -357,6 +360,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `1` on success, `0` on failure |
 | `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `1` on success, `0` on failure |
 | `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `1` on success, `0` on failure |
+| `NEXT_LAYER <registry>` | `NEXT_SCAN_LAYER` | Advance a tracking registry to a new scan layer. | `1` on success, `0` on failure |
 | `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
 | `SAVE <registry>` | `SAVE_TRACKING`, `SAVE_SCAN` | Stop tracking a registry, stop Keyence scanning/streaming, and export the registry to CSV. | `1` on success, `0` on failure |
 | `SAVE_CSV <registry>` | `EXPORT_CSV`, `SAVE_TRACKING_CSV`, `EXPORT_TRACKING_CSV` | Save a named tracking registry to a CSV file in `exports`. | `1` on success, `0` on failure |
@@ -408,6 +412,14 @@ RETURN_TRACKING 2
 
 Active trackers collect valid Keyence height samples whenever the bridge records a valid height. This can happen from reads or stream updates.
 
+Registries can also be divided into scan layers. A layer is only an ordering marker; it does not imply X, Y, or any physical offset. Use:
+
+```text
+NEXT_LAYER 1
+```
+
+after SPC has moved to the next scan layer. CSV exports include `layer_index` and `layer_sample_index` columns.
+
 Useful tracker query commands:
 
 ```text
@@ -415,6 +427,7 @@ RETURN_TRACKING 1
 AVERAGE_TRACKING 1
 MAX_TRACKING 1
 MIN_TRACKING 1
+NEXT_LAYER 1
 SAVE_CSV 1
 ```
 

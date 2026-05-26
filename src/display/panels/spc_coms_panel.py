@@ -149,6 +149,16 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    spc_command_pattern("NEXT_LAYER"),
+                    "Advance a tracking registry to a new scan layer",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("NEXT_SCAN_LAYER"),
+                    "Advance a tracking registry to a new scan layer",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("PREPARE"),
                     "Clear registry, start tracking, and start Keyence stream",
                     regex=True,

@@ -193,6 +193,29 @@ class BridgeTuiApp(App):
 
         keyence_panel.log_system(f"CSV exported: {message.path}")
 
+    def on_height_data_panel_next_layer_requested(
+        self,
+        message: HeightDataPanel.NextLayerRequested,
+    ) -> None:
+        if message.registry is None:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                "NEXT_LAYER requires a selected tracking registry"
+            )
+            return
+
+        try:
+            layer_index = self.controller.next_tracking_layer(message.registry)
+        except Exception as error:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                f"NEXT_LAYER failed: {error}"
+            )
+            return
+
+        self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+            f"Registry {message.registry} advanced to layer {layer_index}"
+        )
+        self._drain_controller_events()
+
     def watch_show_height_data(self, show: bool) -> None:
         self.query_one("#height-data-panel", HeightDataPanel).set_class(
             show,
@@ -356,7 +379,8 @@ class BridgeTuiApp(App):
             {
                 registry: (
                     self.controller.height_trackers.is_active(registry),
-                    self.controller.height_trackers.values(registry),
+                    self.controller.height_trackers.current_layer(registry),
+                    self.controller.height_trackers.layers(registry),
                 )
                 for registry in self.controller.height_trackers.registries()
             }

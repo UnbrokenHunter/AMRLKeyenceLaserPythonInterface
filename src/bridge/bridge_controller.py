@@ -715,6 +715,30 @@ class BridgeController:
     def stop_stream_for_spc(self) -> str:
         return self._stop_stream_for_spc()
 
+    def next_tracking_layer_for_spc(self, registry: str) -> str:
+        try:
+            layer_index = self.height_trackers.next_layer(registry)
+            self._emit(
+                BridgeEventType.SYSTEM,
+                f"Registry {registry} advanced to layer {layer_index}",
+            )
+            self._status_changed()
+            return SPC_SUCCESS_STATUS
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC NEXT_LAYER failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
+    def next_tracking_layer(self, registry: str) -> int:
+        layer_index = self.height_trackers.next_layer(registry)
+        self._emit(
+            BridgeEventType.SYSTEM,
+            f"Registry {registry} advanced to layer {layer_index}",
+        )
+        self._status_changed()
+        return layer_index
+
     def get_keyence_program_for_spc(self) -> str:
         if not self.state.keyence.connected:
             return "ERROR KEYENCE_NOT_CONNECTED"
@@ -819,8 +843,13 @@ class BridgeController:
 
     def export_tracking_csv(self, registry: str) -> Path:
         samples = [
-            CsvHeightSample(value_mm=value, valid=True)
-            for value in self.height_trackers.values(registry)
+            CsvHeightSample(
+                value_mm=sample.value_mm,
+                valid=True,
+                layer_index=sample.layer_index,
+                layer_sample_index=sample.layer_sample_index,
+            )
+            for sample in self.height_trackers.samples(registry)
         ]
 
         return export_height_samples(

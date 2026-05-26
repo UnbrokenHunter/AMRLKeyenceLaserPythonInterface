@@ -23,6 +23,8 @@ class GraphSample:
     value_mm: float
     valid: bool
     timestamp: float | None = None
+    layer_index: int = 0
+    layer_sample_index: int | None = None
 
 
 class HeightGraphPanel(Vertical):
@@ -210,6 +212,8 @@ class HeightSource:
     key: str
     label: str
     samples: list[GraphSample]
+    layers: dict[int, list[GraphSample]]
+    current_layer_index: int = 0
     active: bool = False
 
 
@@ -229,7 +233,19 @@ class HeightSourceSelector(Vertical):
             value="LIVE",
             classes="height-source-select",
         )
+        yield Select(
+            [("ALL LAYERS", "ALL")],
+            id="height-layer-select",
+            allow_blank=False,
+            value="ALL",
+            classes="height-source-select",
+        )
         yield Static("", id="height-source-list")
+        yield Static(
+            "NEXT LAYER",
+            id="height-next-layer",
+            classes="coms-filter-mini enabled height-export-button",
+        )
         yield Static(
             "EXPORT CSV",
             id="height-export-csv",
@@ -241,6 +257,15 @@ class HeightSourceSelector(Vertical):
             self.post_message(self.ExportRequested(self))
             event.stop()
 
+        if event.widget and event.widget.id == "height-next-layer":
+            self.post_message(self.NextLayerRequested(self))
+            event.stop()
+
+    class NextLayerRequested(Message):
+        def __init__(self, source: "HeightSourceSelector") -> None:
+            super().__init__()
+            self.source = source
+
 
 class HeightDataPanel(Horizontal):
     class ExportCompleted(Message):
@@ -249,11 +274,17 @@ class HeightDataPanel(Horizontal):
             self.path = path
             self.error = error
 
+    class NextLayerRequested(Message):
+        def __init__(self, registry: str | None) -> None:
+            super().__init__()
+            self.registry = registry
+
     def __init__(self, *args, max_live_points: int = 120, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.live_samples: deque[GraphSample] = deque(maxlen=max_live_points)
         self.sources: list[HeightSource] = []
         self.selected_source_key = "LIVE"
+        self.selected_layers: dict[str, str] = {}
         self.include_invalid = True
 
     def compose(self) -> ComposeResult:
@@ -275,6 +306,7 @@ class HeightDataPanel(Horizontal):
                 value_mm=reading.value_mm,
                 valid=reading.ok,
                 timestamp=time.monotonic(),
+                layer_index=0,
             )
         )
 
@@ -292,21 +324,44 @@ class HeightDataPanel(Horizontal):
         if self.selected_source_key == "LIVE":
             self._render_selected_source()
 
-    def set_tracker_sources(self, trackers: dict[str, tuple[bool, list[float]]]) -> None:
+    def set_tracker_sources(
+        self,
+        trackers: dict[str, tuple[bool, int, dict[int, list[float]]]],
+    ) -> None:
         self.sources = [
             HeightSource(
                 key=f"TRACK:{registry}",
                 label=(
                     f"{registry} "
-                    f"({'ON' if active else 'OFF'}, {len(values)} samples)"
+                    f"({'ON' if active else 'OFF'}, {self._layer_count(layers)} samples, "
+                    f"layer {current_layer})"
                 ),
                 samples=[
-                    GraphSample(value_mm=value, valid=True)
-                    for value in values
+                    GraphSample(
+                        value_mm=value,
+                        valid=True,
+                        layer_index=layer_index,
+                        layer_sample_index=sample_index,
+                    )
+                    for layer_index, values in sorted(layers.items())
+                    for sample_index, value in enumerate(values, start=1)
                 ],
+                layers={
+                    layer_index: [
+                        GraphSample(
+                            value_mm=value,
+                            valid=True,
+                            layer_index=layer_index,
+                            layer_sample_index=sample_index,
+                        )
+                        for sample_index, value in enumerate(values, start=1)
+                    ]
+                    for layer_index, values in sorted(layers.items())
+                },
+                current_layer_index=current_layer,
                 active=active,
             )
-            for registry, (active, values) in sorted(trackers.items())
+            for registry, (active, current_layer, layers) in sorted(trackers.items())
         ]
 
         available_keys = {"LIVE"} | {source.key for source in self.sources}
@@ -315,6 +370,7 @@ class HeightDataPanel(Horizontal):
             self.selected_source_key = "LIVE"
 
         self._render_source_select()
+        self._render_layer_select()
         self._render_source_list()
         self._render_selected_source()
 
@@ -323,9 +379,16 @@ class HeightDataPanel(Horizontal):
             return
 
         if isinstance(event.value, str):
-            self.selected_source_key = event.value
-            self._render_source_list()
-            self._render_selected_source()
+            if event.select.id == "height-source-select":
+                self.selected_source_key = event.value
+                self._render_layer_select()
+                self._render_source_list()
+                self._render_selected_source()
+
+            elif event.select.id == "height-layer-select":
+                self.selected_layers[self.selected_source_key] = event.value
+                self._render_source_list()
+                self._render_selected_source()
 
         event.stop()
 
@@ -342,6 +405,13 @@ class HeightDataPanel(Horizontal):
             return
 
         self.post_message(self.ExportCompleted(path=str(path)))
+
+    def on_height_source_selector_next_layer_requested(
+        self,
+        event: HeightSourceSelector.NextLayerRequested,
+    ) -> None:
+        event.stop()
+        self.post_message(self.NextLayerRequested(self._selected_registry()))
 
     def on_height_graph_panel_invalid_visibility_changed(
         self,
@@ -364,6 +434,8 @@ class HeightDataPanel(Horizontal):
                     if sample.timestamp is None
                     else max(0.0, now - sample.timestamp)
                 ),
+                layer_index=sample.layer_index,
+                layer_sample_index=sample.layer_sample_index,
             )
             for sample in self._selected_samples()
         ]
@@ -371,6 +443,7 @@ class HeightDataPanel(Horizontal):
         return export_height_samples(source_name=source_name, samples=samples)
 
     def _render_source_list(self) -> None:
+        layer_label = self._selected_layer_label()
         rows = [
             self._source_row(
                 key="LIVE",
@@ -383,7 +456,10 @@ class HeightDataPanel(Horizontal):
             rows.append(
                 self._source_row(
                     key=source.key,
-                    label=source.label,
+                    label=(
+                        f"{source.label}"
+                        f"{' [view: ' + layer_label + ']' if source.key == self.selected_source_key else ''}"
+                    ),
                     active=source.active,
                 )
             )
@@ -399,6 +475,29 @@ class HeightDataPanel(Horizontal):
 
         select.set_options(options)
         select.value = self.selected_source_key
+
+    def _render_layer_select(self) -> None:
+        select = self.query_one("#height-layer-select", Select)
+        source = self._selected_tracker_source()
+
+        if source is None:
+            select.set_options([("ALL LAYERS", "ALL")])
+            select.value = "ALL"
+            return
+
+        options = [("ALL LAYERS", "ALL")] + [
+            (f"LAYER {layer_index}", str(layer_index))
+            for layer_index in sorted(source.layers.keys())
+        ]
+
+        selected = self.selected_layers.get(source.key, "ALL")
+        available_values = {value for _, value in options}
+
+        if selected not in available_values:
+            selected = "ALL"
+
+        select.set_options(options)
+        select.value = selected
 
     def _source_row(self, key: str, label: str, active: bool) -> str:
         selected = ">" if key == self.selected_source_key else " "
@@ -417,14 +516,7 @@ class HeightDataPanel(Horizontal):
             )
             return
 
-        source = next(
-            (
-                source
-                for source in self.sources
-                if source.key == self.selected_source_key
-            ),
-            None,
-        )
+        source = self._selected_tracker_source()
 
         if source is None:
             graph.set_samples(
@@ -435,8 +527,8 @@ class HeightDataPanel(Horizontal):
             return
 
         graph.set_samples(
-            f"Tracking {source.key.removeprefix('TRACK:')}",
-            source.samples,
+            f"Tracking {source.key.removeprefix('TRACK:')} ({self._selected_layer_label()})",
+            self._selected_tracker_samples(source),
             source_kind="TRACK",
         )
 
@@ -445,7 +537,27 @@ class HeightDataPanel(Horizontal):
             samples = list(self.live_samples)
             return self._filter_invalid_samples(samples)
 
-        source = next(
+        source = self._selected_tracker_source()
+
+        if source is None:
+            return []
+
+        return self._filter_invalid_samples(self._selected_tracker_samples(source))
+
+    def _selected_export_name(self) -> str:
+        if self.selected_source_key == "LIVE":
+            return "live"
+
+        return f"register-{self.selected_source_key.removeprefix('TRACK:')}"
+
+    def _selected_registry(self) -> str | None:
+        if not self.selected_source_key.startswith("TRACK:"):
+            return None
+
+        return self.selected_source_key.removeprefix("TRACK:")
+
+    def _selected_tracker_source(self) -> HeightSource | None:
+        return next(
             (
                 source
                 for source in self.sources
@@ -454,22 +566,37 @@ class HeightDataPanel(Horizontal):
             None,
         )
 
+    def _selected_tracker_samples(self, source: HeightSource) -> list[GraphSample]:
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+
+        if selected_layer == "ALL":
+            return list(source.samples)
+
+        try:
+            layer_index = int(selected_layer)
+        except ValueError:
+            return list(source.samples)
+
+        return list(source.layers.get(layer_index, []))
+
+    def _selected_layer_label(self) -> str:
+        source = self._selected_tracker_source()
+
         if source is None:
-            return []
+            return "ALL"
 
-        return self._filter_invalid_samples(list(source.samples))
-
-    def _selected_export_name(self) -> str:
-        if self.selected_source_key == "LIVE":
-            return "live"
-
-        return f"register-{self.selected_source_key.removeprefix('TRACK:')}"
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+        return "ALL" if selected_layer == "ALL" else f"LAYER {selected_layer}"
 
     def _filter_invalid_samples(self, samples: list[GraphSample]) -> list[GraphSample]:
         if self.include_invalid:
             return samples
 
         return [sample for sample in samples if sample.valid]
+
+    @staticmethod
+    def _layer_count(layers: dict[int, list[float]]) -> int:
+        return sum(len(values) for values in layers.values())
 
     @staticmethod
     def _parse_keyence_response(message: str) -> InputReading:

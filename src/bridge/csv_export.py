@@ -15,6 +15,8 @@ class CsvHeightSample:
     value_mm: float
     valid: bool = True
     seconds_ago: float | None = None
+    layer_index: int = 0
+    layer_sample_index: int | None = None
 
 
 def export_height_samples(
@@ -35,13 +37,25 @@ def export_height_samples(
 
     with file_path.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["index", "source", "value_mm", "valid", "seconds_ago"])
+        writer.writerow(
+            [
+                "index",
+                "source",
+                "layer_index",
+                "layer_sample_index",
+                "value_mm",
+                "valid",
+                "seconds_ago",
+            ]
+        )
 
         for index, sample in enumerate(sample_list, start=1):
             writer.writerow(
                 [
                     index,
                     source_name,
+                    sample.layer_index,
+                    "" if sample.layer_sample_index is None else sample.layer_sample_index,
                     f"{sample.value_mm:.5f}",
                     int(sample.valid),
                     "" if sample.seconds_ago is None else f"{sample.seconds_ago:.3f}",
