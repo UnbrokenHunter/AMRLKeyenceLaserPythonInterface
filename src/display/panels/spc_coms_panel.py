@@ -24,6 +24,31 @@ class SpcComsPanel(CommonComsPanel):
                 CommandComment("1", "Success"),
                 CommandComment("0", "Failure"),
                 CommandComment(
+                    r"TRACKING\s+\S+\s+COUNT=\d+\s+VALUES=.*",
+                    "Tracking registry sample list",
+                    regex=True,
+                ),
+                CommandComment(
+                    r"TRACKING_AVG\s+\S+\s+[+-]?\d+(?:\.\d+)?",
+                    "Tracking registry average",
+                    regex=True,
+                ),
+                CommandComment(
+                    r"TRACKING_MAX\s+\S+\s+[+-]?\d+(?:\.\d+)?",
+                    "Tracking registry maximum",
+                    regex=True,
+                ),
+                CommandComment(
+                    r"TRACKING_MIN\s+\S+\s+[+-]?\d+(?:\.\d+)?",
+                    "Tracking registry minimum",
+                    regex=True,
+                ),
+                CommandComment(
+                    r"NO_TRACKING_DATA\s+\S+",
+                    "Tracking registry has no samples",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("PING"),
                     "Check whether the bridge replies with numeric success",
                     regex=True,
