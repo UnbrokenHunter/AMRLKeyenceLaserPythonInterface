@@ -115,6 +115,8 @@ The script:
 - installs `requirements.txt`
 - pauses on failure so the error can be read
 
+This installer needs access to the required Python packages. On an offline machine, prepare `myenv` on another machine or copy a known-good `myenv` folder into the project root.
+
 ### Option B: Manual Install
 
 Open the project root and create the virtual environment:
@@ -156,6 +158,8 @@ python -m src.main
 ```
 
 If `myenv` is missing or the app exits with an error, the script leaves the terminal open so the message can be read.
+
+`run_bridge.bat` does not install packages. It only uses the existing `myenv\Scripts\python.exe`.
 
 ### Option B: Manual Run
 
