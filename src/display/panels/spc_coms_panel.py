@@ -21,6 +21,8 @@ class SpcComsPanel(CommonComsPanel):
             default_show_rx=True,
             default_raw=True,
             command_comments=[
+                CommandComment("1", "Success"),
+                CommandComment("0", "Failure"),
                 CommandComment(
                     spc_command_pattern("PING"),
                     "Check whether the bridge replies with numeric success",
