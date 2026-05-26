@@ -180,6 +180,28 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
+                name="PREPARE",
+                aliases=("PREPARE_TRACKING", "PREPARE_SCAN"),
+                description=(
+                    "Clear a tracking registry, start tracking it, and start "
+                    "Keyence scanning/streaming."
+                ),
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_prepare,
+            ),
+            SpcCommand(
+                name="SAVE",
+                aliases=("SAVE_TRACKING", "SAVE_SCAN"),
+                description=(
+                    "Stop tracking a registry, stop Keyence scanning/streaming, "
+                    "and export the registry to CSV."
+                ),
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_save,
+            ),
+            SpcCommand(
                 name="SAVE_CSV",
                 aliases=("EXPORT_CSV", "SAVE_TRACKING_CSV", "EXPORT_TRACKING_CSV"),
                 description="Save a named tracking registry to a CSV file.",
@@ -253,6 +275,10 @@ _SPC_SPACED_COMMANDS = {
     "START_TRACKING",
     "STOP_TRACKING",
     "CLEAR_TRACKING",
+    "PREPARE_TRACKING",
+    "PREPARE_SCAN",
+    "SAVE_TRACKING",
+    "SAVE_SCAN",
     "SAVE_CSV",
     "EXPORT_CSV",
     "SAVE_TRACKING_CSV",
@@ -340,6 +366,22 @@ def _handle_clear_tracking(
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.clear(registry)
     return SPC_SUCCESS_STATUS
+
+
+def _handle_prepare(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    return context.controller.prepare_tracking_scan_for_spc(registry)
+
+
+def _handle_save(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    return context.controller.save_tracking_scan_for_spc(registry)
 
 
 def _handle_save_csv(

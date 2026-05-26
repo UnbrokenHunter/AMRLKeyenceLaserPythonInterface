@@ -114,6 +114,36 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    spc_command_pattern("PREPARE"),
+                    "Clear registry, start tracking, and start Keyence stream",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("PREPARE_TRACKING"),
+                    "Clear registry, start tracking, and start Keyence stream",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("PREPARE_SCAN"),
+                    "Clear registry, start tracking, and start Keyence stream",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SAVE"),
+                    "Stop tracking, stop Keyence stream, and export CSV",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SAVE_TRACKING"),
+                    "Stop tracking, stop Keyence stream, and export CSV",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SAVE_SCAN"),
+                    "Stop tracking, stop Keyence stream, and export CSV",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("SAVE_CSV"),
                     "Save a tracking registry to CSV",
                     regex=True,

@@ -696,6 +696,41 @@ class BridgeController:
     def stop_stream_for_spc(self) -> str:
         return self._stop_stream_for_spc()
 
+    def prepare_tracking_scan_for_spc(self, registry: str) -> str:
+        try:
+            self.height_trackers.clear(registry)
+            self.height_trackers.start(registry)
+
+            if self.start_stream_for_spc() != SPC_SUCCESS_STATUS:
+                self.height_trackers.stop(registry)
+                return SPC_FAILURE_STATUS
+
+            self._emit(
+                BridgeEventType.SYSTEM,
+                f"Prepared tracking scan for registry {registry}",
+            )
+            return SPC_SUCCESS_STATUS
+        except Exception as error:
+            self.height_trackers.stop(registry)
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC PREPARE failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
+    def save_tracking_scan_for_spc(self, registry: str) -> str:
+        try:
+            self.height_trackers.stop(registry)
+
+            if self.stop_stream_for_spc() != SPC_SUCCESS_STATUS:
+                return SPC_FAILURE_STATUS
+
+            return self.export_tracking_csv_for_spc(registry)
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC SAVE failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
     def export_tracking_csv_for_spc(self, registry: str) -> str:
         try:
             path = self.export_tracking_csv(registry)
