@@ -6,7 +6,7 @@ recognized request names, their descriptions, aliases, and dispatch handlers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, TYPE_CHECKING
 
 from src.bridge.height_tracking import normalize_registry_name
@@ -149,19 +149,19 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             SpcCommand(
                 name="START_TRACKING",
                 description="Start appending new valid Keyence heights to a named tracking registry.",
-                reply_description="OK TRACKING_STARTED <registry> COUNT=<n>",
+                reply_description="OK, or ERROR ...",
                 handler=_handle_start_tracking,
             ),
             SpcCommand(
                 name="STOP_TRACKING",
                 description="Stop appending new heights to a named tracking registry.",
-                reply_description="OK TRACKING_STOPPED <registry> COUNT=<n>",
+                reply_description="OK, or ERROR ...",
                 handler=_handle_stop_tracking,
             ),
             SpcCommand(
                 name="CLEAR_TRACKING",
                 description="Clear all samples from a named tracking registry.",
-                reply_description="OK TRACKING_CLEARED <registry>",
+                reply_description="OK, or ERROR ...",
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
@@ -266,8 +266,7 @@ def _handle_start_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.start(registry)
-    count = context.controller.height_trackers.count(registry)
-    return f"OK TRACKING_STARTED {registry} COUNT={count}"
+    return "OK"
 
 
 def _handle_stop_tracking(
@@ -276,8 +275,7 @@ def _handle_stop_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.stop(registry)
-    count = context.controller.height_trackers.count(registry)
-    return f"OK TRACKING_STOPPED {registry} COUNT={count}"
+    return "OK"
 
 
 def _handle_clear_tracking(
@@ -286,7 +284,7 @@ def _handle_clear_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.clear(registry)
-    return f"OK TRACKING_CLEARED {registry}"
+    return "OK"
 
 
 def _handle_return_tracking(
