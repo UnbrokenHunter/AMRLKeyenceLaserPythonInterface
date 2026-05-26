@@ -29,7 +29,7 @@ class BridgeViewState:
     spc: DeviceViewState = field(default_factory=DeviceViewState)
 
     use_simulator: bool = True
-    continuous_visible: bool = False
+    height_data_visible: bool = False
     streaming: bool = False
 
     keyence_out_no: int = 2

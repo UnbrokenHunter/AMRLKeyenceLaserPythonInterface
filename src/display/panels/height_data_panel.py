@@ -242,7 +242,7 @@ class HeightSourceSelector(Vertical):
             event.stop()
 
 
-class ContinuousKeyencePanel(Horizontal):
+class HeightDataPanel(Horizontal):
     class ExportCompleted(Message):
         def __init__(self, path: str | None, error: str | None = None) -> None:
             super().__init__()
@@ -258,8 +258,8 @@ class ContinuousKeyencePanel(Horizontal):
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
-        yield HeightSourceSelector(id="height-source-panel", classes="continuous-half-panel")
-        yield HeightGraphPanel(id="height-graph-panel", classes="continuous-half-panel")
+        yield HeightSourceSelector(id="height-source-panel", classes="height-data-half-panel")
+        yield HeightGraphPanel(id="height-graph-panel", classes="height-data-half-panel")
 
     def log_data(self, message: str) -> None:
         return

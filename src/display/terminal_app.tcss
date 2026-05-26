@@ -244,13 +244,13 @@ RichLog {
 
 /* Height source + graph area */
 
-#continuous-panel {
+#height-data-panel {
     width: 1fr;
     height: 0;
     display: none;
 }
 
-#continuous-panel.visible {
+#height-data-panel.visible {
     height: 18;
     display: block;
 }
@@ -265,7 +265,7 @@ RichLog {
     color: #b8c7d0;
 }
 
-.continuous-half-panel {
+.height-data-half-panel {
     width: 1fr;
     height: 1fr;
 }

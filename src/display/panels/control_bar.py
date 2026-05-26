@@ -79,7 +79,7 @@ class ControlBar(Horizontal):
             super().__init__()
             self.enabled = enabled
 
-    class ContinuousVisibilityChanged(Message):
+    class HeightDataVisibilityChanged(Message):
         def __init__(self, visible: bool) -> None:
             super().__init__()
             self.visible = visible
@@ -138,8 +138,8 @@ class ControlBar(Horizontal):
     def set_stream_enabled(self, enabled: bool) -> None:
         self._set_toggle_enabled("stream-toggle", enabled)
         
-    def set_continuous_visible(self, visible: bool) -> None:
-        self._set_toggle_enabled("continuous-toggle", visible)
+    def set_height_data_visible(self, visible: bool) -> None:
+        self._set_toggle_enabled("height-data-toggle", visible)
 
     def set_simulator_enabled(self, enabled: bool) -> None:
         self._set_toggle_enabled("simulator-toggle", enabled)
@@ -227,8 +227,8 @@ class ControlBar(Horizontal):
             (
                 ToggleButtonConfig(
                     "Height Panel",
-                    "continuous-toggle",
-                    self.ContinuousVisibilityChanged,
+                    "height-data-toggle",
+                    self.HeightDataVisibilityChanged,
                     on_label="Height: ON",
                     off_label="Height: OFF",
                     classes=view_toggle_classes,

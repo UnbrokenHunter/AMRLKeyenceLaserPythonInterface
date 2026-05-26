@@ -23,7 +23,7 @@ from src.bridge.bridge_controller import BridgeController
 from src.bridge.bridge_events import BridgeEventType
 from src.display.hover_help import DEFAULT_HELP_TEXT, HelpBar, get_hover_help
 from src.display.hover_help_registry import install_hover_help
-from src.display.panels.continuous_keyence_panel import ContinuousKeyencePanel
+from src.display.panels.height_data_panel import HeightDataPanel
 from src.display.panels.control_bar import ControlBar
 from src.display.panels.keyence_coms_panel import KeyenceComsPanel
 from src.display.panels.spc_command_docs_panel import SpcCommandDocsPanel
@@ -36,14 +36,14 @@ class BridgeTuiApp(App):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("h", "toggle_continuous", "Toggle height panel"),
+        ("h", "toggle_height_data", "Toggle height panel"),
         ("c", "connect", "Connect"),
         ("d", "toggle_spc_docs", "Toggle SPC docs"),
         ("s", "toggle_simulator", "Toggle simulator"),
         ("r", "read_once", "Read once"),
     ]
 
-    show_continuous: reactive[bool] = reactive(False)
+    show_height_data: reactive[bool] = reactive(False)
     show_status: reactive[bool] = reactive(True)
     show_spc_coms: reactive[bool] = reactive(True)
     show_keyence_coms: reactive[bool] = reactive(True)
@@ -65,7 +65,7 @@ class BridgeTuiApp(App):
                         yield SpcComsPanel(id="spc-coms-panel")
                         yield KeyenceComsPanel(id="keyence-coms-panel")
 
-                    yield ContinuousKeyencePanel(id="continuous-panel")
+                    yield HeightDataPanel(id="height-data-panel")
 
                 yield StatusColumn(id="status-column")
 
@@ -116,11 +116,11 @@ class BridgeTuiApp(App):
 
         self._drain_controller_events()
         
-    def on_control_bar_continuous_visibility_changed(
+    def on_control_bar_height_data_visibility_changed(
         self,
-        message: ControlBar.ContinuousVisibilityChanged,
+        message: ControlBar.HeightDataVisibilityChanged,
     ) -> None:
-        self._set_continuous_panel_visible(message.visible)
+        self._set_height_data_panel_visible(message.visible)
 
     def on_control_bar_simulator_changed(self, message: ControlBar.SimulatorChanged) -> None:
         self.controller.set_simulator(message.enabled)
@@ -164,9 +164,9 @@ class BridgeTuiApp(App):
             self._drain_controller_events()
             return
 
-    def on_continuous_keyence_panel_export_completed(
+    def on_height_data_panel_export_completed(
         self,
-        message: ContinuousKeyencePanel.ExportCompleted,
+        message: HeightDataPanel.ExportCompleted,
     ) -> None:
         keyence_panel = self.query_one("#keyence-coms-panel", KeyenceComsPanel)
 
@@ -176,14 +176,14 @@ class BridgeTuiApp(App):
 
         keyence_panel.log_system(f"CSV exported: {message.path}")
 
-    def watch_show_continuous(self, show: bool) -> None:
-        self.query_one("#continuous-panel", ContinuousKeyencePanel).set_class(
+    def watch_show_height_data(self, show: bool) -> None:
+        self.query_one("#height-data-panel", HeightDataPanel).set_class(
             show,
             "visible",
         )
 
         control_bar = self.query_one("#controls", ControlBar)
-        control_bar.set_continuous_visible(show)
+        control_bar.set_height_data_visible(show)
 
         self._refresh_all_panels()
 
@@ -206,17 +206,17 @@ class BridgeTuiApp(App):
         )
         self.query_one("#controls", ControlBar).set_spc_docs_visible(show)
 
-    def _set_continuous_panel_visible(self, visible: bool) -> None:
-        self.show_continuous = visible
-        self.controller.set_continuous_visible(visible)
+    def _set_height_data_panel_visible(self, visible: bool) -> None:
+        self.show_height_data = visible
+        self.controller.set_height_data_visible(visible)
 
         control_bar = self.query_one("#controls", ControlBar)
-        control_bar.set_continuous_visible(visible)
+        control_bar.set_height_data_visible(visible)
 
         self._drain_controller_events()
 
-    def action_toggle_continuous(self) -> None:
-        self._set_continuous_panel_visible(not self.show_continuous)
+    def action_toggle_height_data(self) -> None:
+        self._set_height_data_panel_visible(not self.show_height_data)
 
     def action_toggle_spc_docs(self) -> None:
         self.show_spc_docs = not self.show_spc_docs
@@ -271,14 +271,14 @@ class BridgeTuiApp(App):
                     event.message
                 )
 
-                continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
-                continuous_panel.log_data(event.message)
-                continuous_panel.add_keyence_response(event.message)
+                height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
+                height_data_panel.log_data(event.message)
+                height_data_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
                 error_panel = self._error_panel_for_message(event.message)
                 error_panel.log_system(f"ERROR: {event.message}")
-                self.query_one("#continuous-panel", ContinuousKeyencePanel).log_data(
+                self.query_one("#height-data-panel", HeightDataPanel).log_data(
                     f"ERROR: {event.message}"
                 )
 
@@ -318,7 +318,7 @@ class BridgeTuiApp(App):
 
         control_bar = self.query_one("#controls", ControlBar)
         control_bar.set_stream_enabled(state.streaming)
-        control_bar.set_continuous_visible(state.continuous_visible)
+        control_bar.set_height_data_visible(state.height_data_visible)
         control_bar.set_simulator_enabled(state.use_simulator)
         control_bar.set_status_visible(self.show_status)
         control_bar.set_spc_coms_visible(self.show_spc_coms)
@@ -328,8 +328,8 @@ class BridgeTuiApp(App):
         docs_panel = self.query_one("#spc-docs-panel", SpcCommandDocsPanel)
         docs_panel.set_commands(self.controller.spc_commands.describe_commands())
 
-        continuous_panel = self.query_one("#continuous-panel", ContinuousKeyencePanel)
-        continuous_panel.set_tracker_sources(
+        height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
+        height_data_panel.set_tracker_sources(
             {
                 registry: (
                     self.controller.height_trackers.is_active(registry),
@@ -338,7 +338,7 @@ class BridgeTuiApp(App):
                 for registry in self.controller.height_trackers.registries()
             }
         )
-        continuous_panel.set_class(self.show_continuous, "visible")
+        height_data_panel.set_class(self.show_height_data, "visible")
         docs_panel.set_class(not self.show_spc_docs, "hidden")
 
     def on_device_status_panel_port_changed(

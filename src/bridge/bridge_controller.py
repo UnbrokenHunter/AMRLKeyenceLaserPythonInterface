@@ -476,8 +476,8 @@ class BridgeController:
     def handle_spc_request(self, message: str) -> str | bytes | None:
         return self.spc_commands.handle(message, SpcCommandContext(controller=self))
 
-    def set_continuous_visible(self, visible: bool) -> None:
-        self.state.continuous_visible = visible
+    def set_height_data_visible(self, visible: bool) -> None:
+        self.state.height_data_visible = visible
         self._status_changed()
 
     def drain_events(self) -> list[BridgeEvent]:
