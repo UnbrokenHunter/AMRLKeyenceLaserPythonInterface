@@ -97,6 +97,8 @@ From Python's perspective:
 
 There are two install paths. Use the script path unless you need to debug setup manually.
 
+This project was built with Python 3.14. Use Python 3.14 for the fewest dependency and runtime issues.
+
 ### Option A: Install With Script
 
 From the project root, run:
@@ -118,8 +120,10 @@ The script:
 Open the project root and create the virtual environment:
 
 ```bat
-python -m venv myenv
+py -3.14 -m venv myenv
 ```
+
+If the Python launcher is not available, use the Python 3.14 executable directly.
 
 Activate the virtual environment:
 

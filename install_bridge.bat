@@ -15,16 +15,19 @@ if not exist "requirements.txt" (
     exit /b 1
 )
 
-where py >nul 2>nul
+py -3.14 --version >nul 2>nul
 if "%ERRORLEVEL%"=="0" (
-    set "PYTHON_CMD=py"
+    set "PYTHON_CMD=py -3.14"
 ) else (
     where python >nul 2>nul
     if "%ERRORLEVEL%"=="0" (
+        echo Python 3.14 was not found through the Python launcher.
+        echo Falling back to python from PATH. Python 3.14 is recommended.
+        echo.
         set "PYTHON_CMD=python"
     ) else (
         echo Could not find Python.
-        echo Install Python, then run this script again.
+        echo Install Python 3.14, then run this script again.
         echo.
         pause
         exit /b 1
