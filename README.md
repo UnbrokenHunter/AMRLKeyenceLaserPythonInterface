@@ -524,6 +524,7 @@ Fixes:
 
 - Put an appropriate object or surface under the sensor.
 - Move it to a reasonable measurement height.
+- Try changing the Keyence OUT setting in the app. This project defaults to OUT `1`; an invalid response such as `MS,-99.9998,2,--` can happen when the selected OUT channel is not producing a valid measurement.
 - Press `Read` again.
 - If using SPC, retry `READ_HEIGHT`.
 

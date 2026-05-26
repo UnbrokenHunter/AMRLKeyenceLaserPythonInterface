@@ -10,7 +10,7 @@ if __name__ == "__main__":
         keyence_port="COM5",
         spc_port="COM21",
         average_samples=5,
-        keyence_out_no=2,
+        keyence_out_no=1,
         simulated_base_height_mm=15.0,
         simulated_noise_std_mm=0.005,
 
