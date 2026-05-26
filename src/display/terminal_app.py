@@ -17,6 +17,7 @@ from textual.events import MouseMove
 from textual.reactive import reactive
 from textual.widgets import Header
 
+from src.bridge.program_logger import ProgramLogger
 from src.display.panels.common_coms_panel import CommonComsPanel
 from src.display.panels.device_status_panel import DeviceStatusPanel
 from src.bridge.bridge_controller import BridgeController
@@ -26,6 +27,7 @@ from src.display.hover_help_registry import install_hover_help
 from src.display.panels.height_data_panel import HeightDataPanel
 from src.display.panels.control_bar import ControlBar
 from src.display.panels.keyence_coms_panel import KeyenceComsPanel
+from src.display.panels.misc_state_panel import MiscStatePanel
 from src.display.panels.spc_command_docs_panel import SpcCommandDocsPanel
 from src.display.panels.spc_coms_panel import SpcComsPanel
 from src.display.panels.status_column import StatusColumn
@@ -53,6 +55,9 @@ class BridgeTuiApp(App):
         super().__init__()
         self.controller = controller
         self._current_help_text = DEFAULT_HELP_TEXT
+        self.program_logger = ProgramLogger(
+            keep_count=controller.config.log_keep_count,
+        )
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -78,6 +83,7 @@ class BridgeTuiApp(App):
         self.sub_title = "AMRL Gen2 Laser System"
 
         self._refresh_all_panels()
+        self.program_logger.start()
         self._drain_controller_events()
         install_hover_help(self)
 
@@ -163,6 +169,17 @@ class BridgeTuiApp(App):
             self.controller.send_spc_command(message.command, emit_sent=False)
             self._drain_controller_events()
             return
+
+    def on_misc_state_panel_setting_changed(
+        self,
+        message: MiscStatePanel.SettingChanged,
+    ) -> None:
+        if message.setting == "log_keep_count":
+            self.controller.set_log_keep_count(message.value)
+            self.program_logger.set_keep_count(
+                self.controller.state.log_keep_count
+            )
+            self._drain_controller_events()
 
     def on_height_data_panel_export_completed(
         self,
@@ -252,21 +269,25 @@ class BridgeTuiApp(App):
     def _drain_controller_events(self) -> None:
         for event in self.controller.drain_events():
             if event.type == BridgeEventType.SPC_RECEIVED:
+                self.program_logger.write("RX", "SPC", event.message)
                 self.query_one("#spc-coms-panel", SpcComsPanel).receive_data(
                     event.message
                 )
 
             elif event.type == BridgeEventType.SPC_SENT:
+                self.program_logger.write("TX", "SPC", event.message)
                 self.query_one("#spc-coms-panel", SpcComsPanel).log_sent(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_SENT:
+                self.program_logger.write("TX", "KEYENCE", event.message)
                 self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_sent(
                     event.message
                 )
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
+                self.program_logger.write("RX", "KEYENCE", event.message)
                 self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_received(
                     event.message
                 )
@@ -276,6 +297,7 @@ class BridgeTuiApp(App):
                 height_data_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
+                self.program_logger.write("ERROR", "SYSTEM", event.message)
                 error_panel = self._error_panel_for_message(event.message)
                 error_panel.log_system(f"ERROR: {event.message}")
                 self.query_one("#height-data-panel", HeightDataPanel).log_data(
@@ -283,6 +305,7 @@ class BridgeTuiApp(App):
                 )
 
             elif event.type == BridgeEventType.SYSTEM:
+                self.program_logger.write("SYS", "SYSTEM", event.message)
                 self.query_one("#spc-coms-panel", SpcComsPanel).log_system(
                     event.message
                 )

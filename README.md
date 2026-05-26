@@ -202,6 +202,8 @@ Main controls:
 
 The port/settings fields in the status panels apply when you press `Enter` or when the field loses focus.
 
+The `Logs` field in Bridge State controls how many session log files are kept in the project `logs` folder. The app records raw SPC/Keyence TX/RX, system messages, and errors before UI filters such as RAW, TIME, RX, TX, or WRAP are applied.
+
 ## Keyboard Shortcuts
 
 | Key | Action |

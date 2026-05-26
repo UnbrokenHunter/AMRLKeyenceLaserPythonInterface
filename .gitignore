@@ -223,3 +223,6 @@ __marimo__/
 
 # Project-generated data exports
 exports/
+
+# Project-generated session logs
+logs/

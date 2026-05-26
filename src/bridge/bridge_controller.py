@@ -65,6 +65,7 @@ class BridgeConfig:
     simulated_noise_std_mm: float = 0.002
     simulated_drift_per_sec_mm: float = 0.0001
     simulated_invalid_probability: float = 0.0
+    log_keep_count: int = 25
 
 
 class BridgeController:
@@ -92,6 +93,7 @@ class BridgeController:
             keyence_out_no=config.keyence_out_no,
             spc_baudrate=config.spc_baudrate,
             spc_line_ending=terminator_to_label(config.spc_terminator),
+            log_keep_count=config.log_keep_count,
         )
 
         self._events: Queue[BridgeEvent] = Queue()
@@ -478,6 +480,23 @@ class BridgeController:
 
     def set_height_data_visible(self, visible: bool) -> None:
         self.state.height_data_visible = visible
+        self._status_changed()
+
+    def set_log_keep_count(self, keep_count: int | str) -> None:
+        try:
+            keep_count = int(str(keep_count).strip())
+
+            if keep_count <= 0:
+                raise ValueError("Log keep count must be positive")
+
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"Log setting change failed: {error}")
+            self._status_changed()
+            return
+
+        self.config.log_keep_count = keep_count
+        self.state.log_keep_count = keep_count
         self._status_changed()
 
     def drain_events(self) -> list[BridgeEvent]:

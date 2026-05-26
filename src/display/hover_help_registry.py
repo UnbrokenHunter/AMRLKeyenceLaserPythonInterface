@@ -56,6 +56,8 @@ HELP_ITEMS = {
     "#spc-spc_line_ending": "Line ending appended to SPC replies, such as CRLF. Press Enter to apply.",
     "#misc-state-panel": "Bridge runtime summary: simulator mode, stream state, serial counts, and current configuration.",
     "#misc-state": "Live bridge counters and settings.",
+    "#misc-log_keep_count-label": "Number of session log files to keep.",
+    "#misc-log_keep_count": "Maximum number of bridge session log files to keep in the logs folder. Press Enter to apply.",
     "#misc-error": "Most recent bridge error. This turns red when an error is present.",
     "#controls": "Main controls for connection, simulator mode, reads, streaming, and panel visibility.",
     "#close-button": "Close serial connections and exit the bridge UI.",
