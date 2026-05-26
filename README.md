@@ -362,6 +362,7 @@ Reply rules:
 - Boolean/status-style commands use numeric replies so SPC does not need string comparison.
 - For those commands, `1` means success and `0` means failure.
 - Unknown commands return `ERROR UNKNOWN_COMMAND <message>`.
+- Commands may be sent with underscores or spaces between command words. For example, `MAX_TRACKING 1` and `MAX TRACKING 1` are both accepted.
 
 ### Tracking Registries
 

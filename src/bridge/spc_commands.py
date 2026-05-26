@@ -215,14 +215,42 @@ def parse_spc_message(message: str) -> ParsedSpcMessage | None:
         return None
 
     parts = raw.replace(",", " ").split()
-    name = normalize_command_name(parts[0])
-    args = tuple(parts[1:])
+    name, args = _parse_command_name_and_args(parts)
 
     return ParsedSpcMessage(raw=message, name=name, args=args)
 
 
 def normalize_command_name(name: str) -> str:
     return name.strip().upper()
+
+
+def _parse_command_name_and_args(parts: list[str]) -> tuple[str, tuple[str, ...]]:
+    max_command_words = min(3, len(parts))
+
+    for word_count in range(max_command_words, 1, -1):
+        spaced_name = normalize_command_name("_".join(parts[:word_count]))
+        if spaced_name in _SPC_SPACED_COMMANDS:
+            return spaced_name, tuple(parts[word_count:])
+
+    return normalize_command_name(parts[0]), tuple(parts[1:])
+
+
+_SPC_SPACED_COMMANDS = {
+    "GET_LAST_HEIGHT",
+    "GET_HEIGHT",
+    "READ_HEIGHT",
+    "READ_ONCE",
+    "START_STREAM",
+    "STOP_STREAM",
+    "START_TRACKING",
+    "STOP_TRACKING",
+    "CLEAR_TRACKING",
+    "RETURN_TRACKING",
+    "AVERAGE_TRACKING",
+    "AVG_TRACKING",
+    "MAX_TRACKING",
+    "MIN_TRACKING",
+}
 
 
 def _handle_ping(
