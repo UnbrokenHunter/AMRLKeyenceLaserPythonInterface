@@ -499,6 +499,33 @@ class BridgeController:
         self.state.log_keep_count = keep_count
         self._status_changed()
 
+    def ensure_tracking_registry(self, registry: str) -> str:
+        registry = self.height_trackers.ensure(registry)
+        self._emit(BridgeEventType.SYSTEM, f"Tracking registry ready: {registry}")
+        self._status_changed()
+        return registry
+
+    def start_tracking_registry(self, registry: str) -> str:
+        registry = self.height_trackers.ensure(registry)
+        self.height_trackers.start(registry)
+        self._emit(BridgeEventType.SYSTEM, f"Tracking registry enabled: {registry}")
+        self._status_changed()
+        return registry
+
+    def stop_tracking_registry(self, registry: str) -> str:
+        registry = self.height_trackers.ensure(registry)
+        self.height_trackers.stop(registry)
+        self._emit(BridgeEventType.SYSTEM, f"Tracking registry disabled: {registry}")
+        self._status_changed()
+        return registry
+
+    def clear_tracking_registry(self, registry: str) -> str:
+        registry = self.height_trackers.ensure(registry)
+        self.height_trackers.clear(registry)
+        self._emit(BridgeEventType.SYSTEM, f"Tracking registry cleared: {registry}")
+        self._status_changed()
+        return registry
+
     def drain_events(self) -> list[BridgeEvent]:
         events: list[BridgeEvent] = []
 

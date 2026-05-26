@@ -9,13 +9,16 @@ import time
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.events import Click, Resize
+from textual.events import Click, Key, Resize
 from textual.message import Message
-from textual.widgets import Label, Select, Static
+from textual.widgets import Input, Label, Select, Static
 
 from src.bridge.csv_export import CsvHeightSample, export_height_samples
 from src.input.input_client import InputReading
 from src.input.keyence_protocol import parse_ms3_response, parse_stream_response
+
+
+CREATE_NEW_SOURCE_KEY = "__CREATE_NEW_REGISTER__"
 
 
 @dataclass(frozen=True)
@@ -223,6 +226,16 @@ class HeightSourceSelector(Vertical):
             super().__init__()
             self.source = source
 
+    class CreateRegistryRequested(Message):
+        def __init__(self, registry: str) -> None:
+            super().__init__()
+            self.registry = registry
+
+    class ToggleRegistryRequested(Message):
+        def __init__(self, source: "HeightSourceSelector") -> None:
+            super().__init__()
+            self.source = source
+
     def compose(self) -> ComposeResult:
         self.add_class("height-source-panel")
         yield Label("Height Source", classes="panel-title")
@@ -233,6 +246,12 @@ class HeightSourceSelector(Vertical):
             value="LIVE",
             classes="height-source-select",
         )
+        yield Input(
+            placeholder="New register",
+            id="height-register-input",
+            classes="height-register-input hidden",
+            compact=True,
+        )
         yield Select(
             [("ALL LAYERS", "ALL")],
             id="height-layer-select",
@@ -240,6 +259,17 @@ class HeightSourceSelector(Vertical):
             value="ALL",
             classes="height-source-select",
         )
+        with Horizontal(classes="height-register-actions"):
+            yield Static(
+                "START",
+                id="height-toggle-register",
+                classes="coms-filter-mini disabled height-register-action",
+            )
+            yield Static(
+                "CLEAR",
+                id="height-clear-register",
+                classes="coms-filter-mini disabled height-register-action",
+            )
         yield Static("", id="height-source-list")
         yield Static(
             "NEXT LAYER",
@@ -261,7 +291,45 @@ class HeightSourceSelector(Vertical):
             self.post_message(self.NextLayerRequested(self))
             event.stop()
 
+        if event.widget and event.widget.id == "height-toggle-register":
+            self.post_message(self.ToggleRegistryRequested(self))
+            event.stop()
+
+        if event.widget and event.widget.id == "height-clear-register":
+            self.post_message(self.ClearRegistryRequested(self))
+            event.stop()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "height-register-input":
+            return
+
+        registry = event.input.value.strip()
+
+        if registry:
+            event.input.value = ""
+            self.post_message(self.CreateRegistryRequested(registry))
+        else:
+            self.post_message(self.CreateRegistryRequested(""))
+
+        event.input.blur()
+        event.stop()
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "escape":
+            create_input = self.query_one("#height-register-input", Input)
+
+            if create_input.has_focus:
+                create_input.value = ""
+                create_input.blur()
+                self.post_message(self.CreateRegistryRequested(""))
+                event.stop()
+
     class NextLayerRequested(Message):
+        def __init__(self, source: "HeightSourceSelector") -> None:
+            super().__init__()
+            self.source = source
+
+    class ClearRegistryRequested(Message):
         def __init__(self, source: "HeightSourceSelector") -> None:
             super().__init__()
             self.source = source
@@ -279,11 +347,28 @@ class HeightDataPanel(Horizontal):
             super().__init__()
             self.registry = registry
 
+    class CreateRegistryRequested(Message):
+        def __init__(self, registry: str) -> None:
+            super().__init__()
+            self.registry = registry
+
+    class ToggleRegistryRequested(Message):
+        def __init__(self, registry: str | None, enable: bool) -> None:
+            super().__init__()
+            self.registry = registry
+            self.enable = enable
+
+    class ClearRegistryRequested(Message):
+        def __init__(self, registry: str | None) -> None:
+            super().__init__()
+            self.registry = registry
+
     def __init__(self, *args, max_live_points: int = 120, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.live_samples: deque[GraphSample] = deque(maxlen=max_live_points)
         self.sources: list[HeightSource] = []
         self.selected_source_key = "LIVE"
+        self.previous_source_key = "LIVE"
         self.selected_layers: dict[str, str] = {}
         self.include_invalid = True
 
@@ -368,20 +453,34 @@ class HeightDataPanel(Horizontal):
 
         if self.selected_source_key not in available_keys:
             self.selected_source_key = "LIVE"
+            self.previous_source_key = "LIVE"
 
         self._render_source_select()
         self._render_layer_select()
+        self._sync_register_action_buttons()
         self._render_source_list()
         self._render_selected_source()
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "height-source-select":
+        if event.select.id not in {"height-source-select", "height-layer-select"}:
             return
 
         if isinstance(event.value, str):
             if event.select.id == "height-source-select":
+                if event.value == CREATE_NEW_SOURCE_KEY:
+                    self._show_create_input()
+                    event.stop()
+                    return
+
+                if self._create_input_is_visible() and event.value == self.selected_source_key:
+                    event.stop()
+                    return
+
+                self._hide_create_input()
+                self.previous_source_key = event.value
                 self.selected_source_key = event.value
                 self._render_layer_select()
+                self._sync_register_action_buttons()
                 self._render_source_list()
                 self._render_selected_source()
 
@@ -412,6 +511,38 @@ class HeightDataPanel(Horizontal):
     ) -> None:
         event.stop()
         self.post_message(self.NextLayerRequested(self._selected_registry()))
+
+    def on_height_source_selector_toggle_registry_requested(
+        self,
+        event: HeightSourceSelector.ToggleRegistryRequested,
+    ) -> None:
+        event.stop()
+        source = self._selected_tracker_source()
+        self.post_message(
+            self.ToggleRegistryRequested(
+                self._selected_registry(),
+                enable=not bool(source and source.active),
+            )
+        )
+
+    def on_height_source_selector_clear_registry_requested(
+        self,
+        event: HeightSourceSelector.ClearRegistryRequested,
+    ) -> None:
+        event.stop()
+        self.post_message(self.ClearRegistryRequested(self._selected_registry()))
+
+    def on_height_source_selector_create_registry_requested(
+        self,
+        event: HeightSourceSelector.CreateRegistryRequested,
+    ) -> None:
+        event.stop()
+
+        if not event.registry.strip():
+            self._cancel_create_register()
+            return
+
+        self.post_message(self.CreateRegistryRequested(event.registry))
 
     def on_height_graph_panel_invalid_visibility_changed(
         self,
@@ -471,7 +602,7 @@ class HeightDataPanel(Horizontal):
         options = [("LIVE", "LIVE")] + [
             (source.label, source.key)
             for source in self.sources
-        ]
+        ] + [("CREATE NEW...", CREATE_NEW_SOURCE_KEY)]
 
         select.set_options(options)
         select.value = self.selected_source_key
@@ -498,6 +629,21 @@ class HeightDataPanel(Horizontal):
 
         select.set_options(options)
         select.value = selected
+
+    def _sync_register_action_buttons(self) -> None:
+        source = self._selected_tracker_source()
+        is_registry = source is not None
+        is_active = bool(source and source.active)
+
+        toggle = self.query_one("#height-toggle-register", Static)
+        toggle.update("STOP" if is_active else "START")
+        self._set_action_enabled("#height-toggle-register", is_registry)
+        self._set_action_enabled("#height-clear-register", is_registry)
+
+    def _set_action_enabled(self, selector: str, enabled: bool) -> None:
+        button = self.query_one(selector, Static)
+        button.set_class(enabled, "enabled")
+        button.set_class(not enabled, "disabled")
 
     def _source_row(self, key: str, label: str, active: bool) -> str:
         selected = ">" if key == self.selected_source_key else " "
@@ -555,6 +701,43 @@ class HeightDataPanel(Horizontal):
             return None
 
         return self.selected_source_key.removeprefix("TRACK:")
+
+    def select_registry(self, registry: str) -> None:
+        self.selected_source_key = f"TRACK:{registry}"
+        self.previous_source_key = self.selected_source_key
+        self.selected_layers.setdefault(self.selected_source_key, "ALL")
+        self._hide_create_input()
+        self._render_source_select()
+        self._render_layer_select()
+        self._sync_register_action_buttons()
+        self._render_source_list()
+        self._render_selected_source()
+
+    def _show_create_input(self) -> None:
+        self.selected_source_key = self.previous_source_key
+        self._render_source_select()
+        create_input = self.query_one("#height-register-input", Input)
+        create_input.remove_class("hidden")
+        create_input.value = ""
+        create_input.focus()
+
+    def _hide_create_input(self) -> None:
+        create_input = self.query_one("#height-register-input", Input)
+        create_input.add_class("hidden")
+        create_input.value = ""
+        create_input.blur()
+
+    def _create_input_is_visible(self) -> bool:
+        return not self.query_one("#height-register-input", Input).has_class("hidden")
+
+    def _cancel_create_register(self) -> None:
+        self.selected_source_key = self.previous_source_key
+        self._hide_create_input()
+        self._render_source_select()
+        self._render_layer_select()
+        self._sync_register_action_buttons()
+        self._render_source_list()
+        self._render_selected_source()
 
     def _selected_tracker_source(self) -> HeightSource | None:
         return next(

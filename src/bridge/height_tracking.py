@@ -28,6 +28,11 @@ class HeightTrackerManager:
     def __init__(self) -> None:
         self._tracks: dict[str, HeightTrack] = {}
 
+    def ensure(self, registry: str) -> str:
+        registry = normalize_registry_name(registry)
+        self._get_track(registry)
+        return registry
+
     def start(self, registry: str) -> None:
         self._get_track(registry).active = True
 

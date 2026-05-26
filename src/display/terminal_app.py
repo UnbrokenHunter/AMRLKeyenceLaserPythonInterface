@@ -216,6 +216,65 @@ class BridgeTuiApp(App):
         )
         self._drain_controller_events()
 
+    def on_height_data_panel_create_registry_requested(
+        self,
+        message: HeightDataPanel.CreateRegistryRequested,
+    ) -> None:
+        try:
+            registry = self.controller.ensure_tracking_registry(message.registry)
+        except Exception as error:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                f"Register creation failed: {error}"
+            )
+            return
+
+        self._drain_controller_events()
+        height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
+        height_data_panel.select_registry(registry)
+
+    def on_height_data_panel_toggle_registry_requested(
+        self,
+        message: HeightDataPanel.ToggleRegistryRequested,
+    ) -> None:
+        if message.registry is None:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                "START/STOP requires a selected tracking registry"
+            )
+            return
+
+        try:
+            if message.enable:
+                self.controller.start_tracking_registry(message.registry)
+            else:
+                self.controller.stop_tracking_registry(message.registry)
+        except Exception as error:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                f"START/STOP failed: {error}"
+            )
+            return
+
+        self._drain_controller_events()
+
+    def on_height_data_panel_clear_registry_requested(
+        self,
+        message: HeightDataPanel.ClearRegistryRequested,
+    ) -> None:
+        if message.registry is None:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                "CLEAR requires a selected tracking registry"
+            )
+            return
+
+        try:
+            self.controller.clear_tracking_registry(message.registry)
+        except Exception as error:
+            self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
+                f"CLEAR failed: {error}"
+            )
+            return
+
+        self._drain_controller_events()
+
     def watch_show_height_data(self, show: bool) -> None:
         self.query_one("#height-data-panel", HeightDataPanel).set_class(
             show,

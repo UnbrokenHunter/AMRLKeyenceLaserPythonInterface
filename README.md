@@ -313,6 +313,8 @@ Sources:
 - `LIVE`: recent live height samples.
 - tracking registries: named registries created by SPC tracking commands.
 
+You can also choose `CREATE NEW...` from the Height Source dropdown, type a register name, and press `Enter` to create and select an empty inactive register.
+
 Graph behavior:
 
 - `LIVE` shows recent samples.
