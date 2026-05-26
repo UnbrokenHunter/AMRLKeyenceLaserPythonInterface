@@ -374,6 +374,8 @@ class HeightDataPanel(Horizontal):
         self.previous_source_key = "LIVE"
         self.selected_layers: dict[str, str] = {}
         self.include_invalid = True
+        self._source_select_options: tuple[tuple[str, str], ...] = ()
+        self._layer_select_options: tuple[tuple[str, str], ...] = ()
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -607,27 +609,38 @@ class HeightDataPanel(Horizontal):
 
     def _render_source_select(self) -> None:
         select = self.query_one("#height-source-select", Select)
-        options = [("LIVE", "LIVE")] + [
+        options = tuple([("LIVE", "LIVE")] + [
             (source.label, source.key)
             for source in self.sources
-        ] + [("CREATE NEW...", CREATE_NEW_SOURCE_KEY)]
+        ] + [("CREATE NEW...", CREATE_NEW_SOURCE_KEY)])
 
-        select.set_options(options)
-        select.value = self.selected_source_key
+        if options != self._source_select_options:
+            select.set_options(list(options))
+            self._source_select_options = options
+
+        if select.value != self.selected_source_key:
+            select.value = self.selected_source_key
 
     def _render_layer_select(self) -> None:
         select = self.query_one("#height-layer-select", Select)
         source = self._selected_tracker_source()
 
         if source is None:
-            select.set_options([("ALL LAYERS", "ALL")])
-            select.value = "ALL"
+            options = (("ALL LAYERS", "ALL"),)
+
+            if options != self._layer_select_options:
+                select.set_options(list(options))
+                self._layer_select_options = options
+
+            if select.value != "ALL":
+                select.value = "ALL"
+
             return
 
-        options = [("ALL LAYERS", "ALL")] + [
+        options = tuple([("ALL LAYERS", "ALL")] + [
             (f"LAYER {layer_index}", str(layer_index))
             for layer_index in sorted(source.layers.keys())
-        ]
+        ])
 
         selected = self.selected_layers.get(source.key, "ALL")
         available_values = {value for _, value in options}
@@ -635,8 +648,12 @@ class HeightDataPanel(Horizontal):
         if selected not in available_values:
             selected = "ALL"
 
-        select.set_options(options)
-        select.value = selected
+        if options != self._layer_select_options:
+            select.set_options(list(options))
+            self._layer_select_options = options
+
+        if select.value != selected:
+            select.value = selected
 
     def _sync_register_action_buttons(self) -> None:
         source = self._selected_tracker_source()

@@ -355,7 +355,11 @@ class BridgeTuiApp(App):
         )
 
     def _drain_controller_events(self) -> None:
+        did_receive_event = False
+
         for event in self.controller.drain_events():
+            did_receive_event = True
+
             if event.type == BridgeEventType.SPC_RECEIVED:
                 self.program_logger.write("RX", "SPC", event.message)
                 self.query_one("#spc-coms-panel", SpcComsPanel).receive_data(
@@ -401,7 +405,8 @@ class BridgeTuiApp(App):
             elif event.type == BridgeEventType.STATUS_CHANGED:
                 pass
 
-        self._refresh_all_panels()
+        if did_receive_event:
+            self._refresh_all_panels()
 
     def _error_panel_for_message(self, message: str) -> CommonComsPanel:
         normalized = message.upper()
