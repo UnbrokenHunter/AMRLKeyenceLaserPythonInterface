@@ -49,6 +49,11 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    r"PR,\d+",
+                    "Keyence active program response",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("PING"),
                     "Check whether the bridge replies with numeric success",
                     regex=True,
@@ -86,6 +91,36 @@ class SpcComsPanel(CommonComsPanel):
                 CommandComment(
                     spc_command_pattern("READ_ONCE"),
                     "Alias for READ_HEIGHT",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("GET_PROGRAM"),
+                    "Request active Keyence program number",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("PROGRAM?"),
+                    "Request active Keyence program number",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("GET_KEYENCE_PROGRAM"),
+                    "Request active Keyence program number",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SET_PROGRAM"),
+                    "Change active Keyence program number",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("CHANGE_PROGRAM"),
+                    "Change active Keyence program number",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SET_KEYENCE_PROGRAM"),
+                    "Change active Keyence program number",
                     regex=True,
                 ),
                 CommandComment(

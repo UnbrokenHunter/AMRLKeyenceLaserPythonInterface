@@ -715,6 +715,62 @@ class BridgeController:
     def stop_stream_for_spc(self) -> str:
         return self._stop_stream_for_spc()
 
+    def get_keyence_program_for_spc(self) -> str:
+        if not self.state.keyence.connected:
+            return "ERROR KEYENCE_NOT_CONNECTED"
+
+        try:
+            self._emit(BridgeEventType.KEYENCE_SENT, "PR")
+            response = self.input_client.send_command("PR")
+            self._emit(BridgeEventType.KEYENCE_RECEIVED, response)
+
+            program_text = self._parse_program_response(response)
+            self.state.keyence.state = f"Program {program_text}"
+            self._status_changed()
+            return program_text
+        except Exception as error:
+            self.state.keyence.state = "Program read failed"
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC GET_PROGRAM failed: {error}")
+            self._status_changed()
+            return f"ERROR {error}"
+
+    def set_keyence_program_for_spc(self, program: int) -> str:
+        if not self.state.keyence.connected:
+            return SPC_FAILURE_STATUS
+
+        if self.state.streaming:
+            self._emit(
+                BridgeEventType.ERROR,
+                "SPC SET_PROGRAM failed: stop streaming before changing programs",
+            )
+            return SPC_FAILURE_STATUS
+
+        if program < 0:
+            return SPC_FAILURE_STATUS
+
+        command = f"PW,{program}"
+
+        try:
+            self._emit(BridgeEventType.KEYENCE_SENT, command)
+            response = self.input_client.send_command(command)
+            self._emit(BridgeEventType.KEYENCE_RECEIVED, response)
+
+            if response != "PW":
+                raise RuntimeError(
+                    f"Unexpected Keyence response for {command!r}: {response!r}"
+                )
+
+            self.state.keyence.state = f"Program set to {program}"
+            self._status_changed()
+            return SPC_SUCCESS_STATUS
+        except Exception as error:
+            self.state.keyence.state = "Program change failed"
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC SET_PROGRAM failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
     def prepare_tracking_scan_for_spc(self, registry: str) -> str:
         try:
             self.height_trackers.clear(registry)
@@ -771,6 +827,20 @@ class BridgeController:
             source_name=f"register-{registry}",
             samples=samples,
         )
+
+    @staticmethod
+    def _parse_program_response(response: str) -> str:
+        parts = response.strip().split(",")
+
+        if len(parts) != 2 or parts[0] != "PR":
+            raise RuntimeError(f"Unexpected Keyence program response: {response!r}")
+
+        program = int(parts[1])
+
+        if program < 0:
+            raise RuntimeError(f"Invalid Keyence program number: {program}")
+
+        return str(program)
 
     def _create_input_client(self) -> InputClient:
         if self.config.use_simulator:

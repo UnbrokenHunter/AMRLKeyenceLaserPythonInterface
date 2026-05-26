@@ -147,6 +147,21 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_read_once,
             ),
             SpcCommand(
+                name="GET_PROGRAM",
+                aliases=("PROGRAM?", "GET_KEYENCE_PROGRAM"),
+                description="Return the active Keyence program number.",
+                reply_description="Numeric program number, or ERROR ...",
+                handler=_handle_get_program,
+            ),
+            SpcCommand(
+                name="SET_PROGRAM",
+                aliases=("CHANGE_PROGRAM", "SET_KEYENCE_PROGRAM"),
+                description="Change the active Keyence program number.",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_set_program,
+            ),
+            SpcCommand(
                 name="START_STREAM",
                 description="Start Keyence automatic transmission.",
                 reply_description="1 on success, 0 on failure.",
@@ -268,8 +283,13 @@ def _parse_command_name_and_args(parts: list[str]) -> tuple[str, tuple[str, ...]
 _SPC_SPACED_COMMANDS = {
     "GET_LAST_HEIGHT",
     "GET_HEIGHT",
+    "GET_PROGRAM",
+    "GET_KEYENCE_PROGRAM",
     "READ_HEIGHT",
     "READ_ONCE",
+    "SET_PROGRAM",
+    "CHANGE_PROGRAM",
+    "SET_KEYENCE_PROGRAM",
     "START_STREAM",
     "STOP_STREAM",
     "START_TRACKING",
@@ -325,6 +345,28 @@ def _handle_read_once(
     parsed: ParsedSpcMessage,
 ) -> str:
     return context.controller.read_height_for_spc()
+
+
+def _handle_get_program(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    return context.controller.get_keyence_program_for_spc()
+
+
+def _handle_set_program(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    if not parsed.args:
+        return SPC_FAILURE_STATUS
+
+    try:
+        program = int(parsed.args[0])
+    except ValueError:
+        return SPC_FAILURE_STATUS
+
+    return context.controller.set_keyence_program_for_spc(program)
 
 
 def _handle_start_stream(

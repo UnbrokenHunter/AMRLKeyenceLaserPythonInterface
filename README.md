@@ -350,6 +350,8 @@ The app's SPC command documentation is generated from the command registry in `s
 | `STATUS` | | Return current bridge, SPC peer, stream, and height state. | `KEYENCE_CONNECTED=...;SPC_CONNECTED=...;STREAMING=...;HEIGHT=...` |
 | `GET_LAST_HEIGHT` | `GET_HEIGHT`, `HEIGHT?` | Return the latest known Keyence height without forcing a read. | numeric height or `NO_HEIGHT` |
 | `READ_HEIGHT` | `READ_ONCE` | Perform a fresh averaged Keyence read and return the height. | numeric height or `ERROR ...` |
+| `GET_PROGRAM` | `PROGRAM?`, `GET_KEYENCE_PROGRAM` | Return the active Keyence program number using `PR`. | numeric program number or `ERROR ...` |
+| `SET_PROGRAM <program>` | `CHANGE_PROGRAM`, `SET_KEYENCE_PROGRAM` | Change the active Keyence program using `PW,<program>`. | `1` on success, `0` on failure |
 | `START_STREAM` | | Start Keyence automatic transmission. | `1` on success, `0` on failure |
 | `STOP_STREAM` | | Stop Keyence automatic transmission. | `1` on success, `0` on failure |
 | `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `1` on success, `0` on failure |

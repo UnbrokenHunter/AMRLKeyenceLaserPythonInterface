@@ -42,6 +42,7 @@ class SimulatedInputClient(InputClient):
         self.measurement_on = True
         self.emission_on = True
         self.streaming = False
+        self.current_program = 0
         self._start_time = time.monotonic()
 
     def open(self) -> None:
@@ -68,6 +69,21 @@ class SimulatedInputClient(InputClient):
         if command in {"LC,1", "LC,0"}:
             self.emission_on = command.endswith(",1")
             return "LC"
+
+        if command == "PR":
+            return f"PR,{self.current_program}"
+
+        if command.startswith("PW,"):
+            try:
+                program = int(command.split(",", maxsplit=1)[1])
+            except (IndexError, ValueError):
+                return "ER,02"
+
+            if program < 0:
+                return "ER,02"
+
+            self.current_program = program
+            return "PW"
 
         if command.startswith("MS,3,"):
             return self._make_ms3_response()
