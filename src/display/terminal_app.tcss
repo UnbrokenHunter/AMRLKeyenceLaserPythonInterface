@@ -421,6 +421,10 @@ RichLog {
     text-style: bold;
 }
 
+.stream-toggle {
+    width: 22;
+}
+
 .view-toggle {
     width: 13;
 }

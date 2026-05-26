@@ -222,6 +222,7 @@ class ControlBar(Horizontal):
                     self.StreamToggleChanged,
                     on_label="Keyence Stream: ON",
                     off_label="Keyence Stream: OFF",
+                    classes="control-button toggle-button stream-toggle",
                 ),
             ),
             (
