@@ -114,6 +114,26 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    spc_command_pattern("SAVE_CSV"),
+                    "Save a tracking registry to CSV",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("EXPORT_CSV"),
+                    "Save a tracking registry to CSV",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SAVE_TRACKING_CSV"),
+                    "Save a tracking registry to CSV",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("EXPORT_TRACKING_CSV"),
+                    "Save a tracking registry to CSV",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("RETURN_TRACKING"),
                     "Return all samples from a named tracking registry",
                     regex=True,

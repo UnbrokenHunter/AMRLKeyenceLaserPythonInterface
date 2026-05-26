@@ -351,6 +351,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `1` on success, `0` on failure |
 | `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `1` on success, `0` on failure |
 | `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `1` on success, `0` on failure |
+| `SAVE_CSV <registry>` | `EXPORT_CSV`, `SAVE_TRACKING_CSV`, `EXPORT_TRACKING_CSV` | Save a named tracking registry to a CSV file in `exports`. | `1` on success, `0` on failure |
 | `RETURN_TRACKING <registry>` | | Return all samples from a named tracking registry. | `TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>` |
 | `AVERAGE_TRACKING <registry>` | `AVG_TRACKING` | Return the average of a named tracking registry. | `TRACKING_AVG <registry> <value>` or `NO_TRACKING_DATA <registry>` |
 | `MAX_TRACKING <registry>` | | Return the maximum sample in a named tracking registry. | `TRACKING_MAX <registry> <value>` or `NO_TRACKING_DATA <registry>` |
@@ -406,7 +407,10 @@ RETURN_TRACKING 1
 AVERAGE_TRACKING 1
 MAX_TRACKING 1
 MIN_TRACKING 1
+SAVE_CSV 1
 ```
+
+CSV exports are written to the project `exports` folder. The UI Height panel can export the currently selected source, including `LIVE`; SPC CSV commands export named tracking registries.
 
 ## Error Behavior
 

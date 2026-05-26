@@ -180,6 +180,14 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
+                name="SAVE_CSV",
+                aliases=("EXPORT_CSV", "SAVE_TRACKING_CSV", "EXPORT_TRACKING_CSV"),
+                description="Save a named tracking registry to a CSV file.",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_save_csv,
+            ),
+            SpcCommand(
                 name="RETURN_TRACKING",
                 description="Return all samples from a named tracking registry.",
                 reply_description="TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>",
@@ -245,6 +253,10 @@ _SPC_SPACED_COMMANDS = {
     "START_TRACKING",
     "STOP_TRACKING",
     "CLEAR_TRACKING",
+    "SAVE_CSV",
+    "EXPORT_CSV",
+    "SAVE_TRACKING_CSV",
+    "EXPORT_TRACKING_CSV",
     "RETURN_TRACKING",
     "AVERAGE_TRACKING",
     "AVG_TRACKING",
@@ -328,6 +340,14 @@ def _handle_clear_tracking(
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.clear(registry)
     return SPC_SUCCESS_STATUS
+
+
+def _handle_save_csv(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    return context.controller.export_tracking_csv_for_spc(registry)
 
 
 def _handle_return_tracking(

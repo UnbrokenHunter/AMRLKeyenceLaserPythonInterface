@@ -164,6 +164,18 @@ class BridgeTuiApp(App):
             self._drain_controller_events()
             return
 
+    def on_continuous_keyence_panel_export_completed(
+        self,
+        message: ContinuousKeyencePanel.ExportCompleted,
+    ) -> None:
+        keyence_panel = self.query_one("#keyence-coms-panel", KeyenceComsPanel)
+
+        if message.error is not None:
+            keyence_panel.log_system(f"CSV export failed: {message.error}")
+            return
+
+        keyence_panel.log_system(f"CSV exported: {message.path}")
+
     def watch_show_continuous(self, show: bool) -> None:
         self.query_one("#continuous-panel", ContinuousKeyencePanel).set_class(
             show,

@@ -23,8 +23,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from queue import Queue
 
+from src.bridge.csv_export import CsvHeightSample, export_height_samples
 from src.bridge.bridge_events import BridgeEvent, BridgeEventType
 from src.bridge.spc_commands import (
     SPC_FAILURE_STATUS,
@@ -57,7 +59,7 @@ class BridgeConfig:
     spc_timeout: float = 0.01
     spc_terminator: bytes = b"\r\n"
     average_samples: int = 5
-    keyence_out_no: int = 2
+    keyence_out_no: int = 1
 
     simulated_base_height_mm: float = 12.000
     simulated_noise_std_mm: float = 0.002
@@ -693,6 +695,28 @@ class BridgeController:
 
     def stop_stream_for_spc(self) -> str:
         return self._stop_stream_for_spc()
+
+    def export_tracking_csv_for_spc(self, registry: str) -> str:
+        try:
+            path = self.export_tracking_csv(registry)
+            self._emit(BridgeEventType.SYSTEM, f"Exported tracking CSV: {path}")
+            return SPC_SUCCESS_STATUS
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC CSV export failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
+    def export_tracking_csv(self, registry: str) -> Path:
+        samples = [
+            CsvHeightSample(value_mm=value, valid=True)
+            for value in self.height_trackers.values(registry)
+        ]
+
+        return export_height_samples(
+            source_name=f"register-{registry}",
+            samples=samples,
+        )
 
     def _create_input_client(self) -> InputClient:
         if self.config.use_simulator:

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
 import time
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.events import Resize
+from textual.events import Click, Resize
+from textual.message import Message
 from textual.widgets import Label, Select, Static
 
+from src.bridge.csv_export import CsvHeightSample, export_height_samples
 from src.input.input_client import InputReading
 from src.input.keyence_protocol import parse_ms3_response, parse_stream_response
 
@@ -23,6 +26,11 @@ class GraphSample:
 
 
 class HeightGraphPanel(Vertical):
+    class ExportRequested(Message):
+        def __init__(self, source: "HeightGraphPanel") -> None:
+            super().__init__()
+            self.source = source
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.samples: list[GraphSample] = []
@@ -31,7 +39,14 @@ class HeightGraphPanel(Vertical):
 
     def compose(self) -> ComposeResult:
         self.add_class("height-graph-panel")
-        yield Label(self.title, id="height-graph-title", classes="panel-title")
+        with Horizontal(classes="height-title-row"):
+            yield Label(self.title, id="height-graph-title", classes="panel-title")
+            yield Static(
+                "CSV",
+                id="height-export-csv",
+                classes="coms-filter-mini enabled height-export-button",
+            )
+
         yield Static("Height: --", id="height-current-value", classes="height-current-value")
         yield Static(
             "Min: --  Max: --  Avg: --",
@@ -39,6 +54,11 @@ class HeightGraphPanel(Vertical):
             classes="height-graph-stats",
         )
         yield Static("", id="height-graph")
+
+    def on_click(self, event: Click) -> None:
+        if event.widget and event.widget.id == "height-export-csv":
+            self.post_message(self.ExportRequested(self))
+            event.stop()
 
     def set_samples(
         self,
@@ -186,6 +206,12 @@ class HeightSourceSelector(Vertical):
 
 
 class ContinuousKeyencePanel(Horizontal):
+    class ExportCompleted(Message):
+        def __init__(self, path: str | None, error: str | None = None) -> None:
+            super().__init__()
+            self.path = path
+            self.error = error
+
     def __init__(self, *args, max_live_points: int = 120, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.live_samples: deque[GraphSample] = deque(maxlen=max_live_points)
@@ -265,6 +291,39 @@ class ContinuousKeyencePanel(Horizontal):
 
         event.stop()
 
+    def on_height_graph_panel_export_requested(
+        self,
+        event: HeightGraphPanel.ExportRequested,
+    ) -> None:
+        event.stop()
+
+        try:
+            path = self.export_selected_source()
+        except Exception as error:
+            self.post_message(self.ExportCompleted(path=None, error=str(error)))
+            return
+
+        self.post_message(self.ExportCompleted(path=str(path)))
+
+    def export_selected_source(self) -> Path:
+        source_name = self._selected_export_name()
+        now = time.monotonic()
+
+        samples = [
+            CsvHeightSample(
+                value_mm=sample.value_mm,
+                valid=sample.valid,
+                seconds_ago=(
+                    None
+                    if sample.timestamp is None
+                    else max(0.0, now - sample.timestamp)
+                ),
+            )
+            for sample in self._selected_samples()
+        ]
+
+        return export_height_samples(source_name=source_name, samples=samples)
+
     def _render_source_list(self) -> None:
         rows = [
             self._source_row(
@@ -333,6 +392,27 @@ class ContinuousKeyencePanel(Horizontal):
             source.samples,
             source_kind="TRACK",
         )
+
+    def _selected_samples(self) -> list[GraphSample]:
+        if self.selected_source_key == "LIVE":
+            return list(self.live_samples)
+
+        source = next(
+            (
+                source
+                for source in self.sources
+                if source.key == self.selected_source_key
+            ),
+            None,
+        )
+
+        return [] if source is None else list(source.samples)
+
+    def _selected_export_name(self) -> str:
+        if self.selected_source_key == "LIVE":
+            return "live"
+
+        return f"register-{self.selected_source_key.removeprefix('TRACK:')}"
 
     @staticmethod
     def _parse_keyence_response(message: str) -> InputReading:

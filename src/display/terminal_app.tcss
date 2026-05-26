@@ -296,6 +296,20 @@ RichLog {
     padding-left: 1;
 }
 
+.height-title-row {
+    height: 1;
+    layout: horizontal;
+    align: left middle;
+}
+
+#height-graph-title {
+    width: 1fr;
+}
+
+.height-export-button {
+    width: 5;
+}
+
 .height-current-value {
     height: 1;
     color: #d7f3ff;
