@@ -34,6 +34,8 @@ class SpcCommandContext:
 
 
 SpcCommandHandler = Callable[[SpcCommandContext, ParsedSpcMessage], str | bytes | None]
+SPC_SUCCESS_STATUS = "1"
+SPC_FAILURE_STATUS = "0"
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class SpcCommand:
     handler: SpcCommandHandler
     aliases: tuple[str, ...] = ()
     reply_description: str = ""
+    failure_reply: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -89,6 +92,9 @@ class SpcCommandRegistry:
         try:
             return command.handler(context, parsed)
         except Exception as error:
+            if command.failure_reply is not None:
+                return command.failure_reply
+
             return f"ERROR {command.normalized_name} {error}"
 
     def describe_commands(self) -> list[SpcCommand]:
@@ -115,7 +121,7 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             SpcCommand(
                 name="PING",
                 description="Check whether the Python bridge is responding.",
-                reply_description="PONG",
+                reply_description="1",
                 handler=_handle_ping,
             ),
             SpcCommand(
@@ -143,31 +149,34 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             SpcCommand(
                 name="START_STREAM",
                 description="Start Keyence automatic transmission.",
-                reply_description="OK or ERROR ...",
+                reply_description="1 on success, 0 on failure.",
                 handler=_handle_start_stream,
             ),
             SpcCommand(
                 name="STOP_STREAM",
                 description="Stop Keyence automatic transmission.",
-                reply_description="OK or ERROR ...",
+                reply_description="1 on success, 0 on failure.",
                 handler=_handle_stop_stream,
             ),
             SpcCommand(
                 name="START_TRACKING",
                 description="Start appending new valid Keyence heights to a named tracking registry.",
-                reply_description="OK, or ERROR ...",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
                 handler=_handle_start_tracking,
             ),
             SpcCommand(
                 name="STOP_TRACKING",
                 description="Stop appending new heights to a named tracking registry.",
-                reply_description="OK, or ERROR ...",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
                 handler=_handle_stop_tracking,
             ),
             SpcCommand(
                 name="CLEAR_TRACKING",
                 description="Clear all samples from a named tracking registry.",
-                reply_description="OK, or ERROR ...",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
@@ -220,7 +229,7 @@ def _handle_ping(
     context: SpcCommandContext,
     parsed: ParsedSpcMessage,
 ) -> str:
-    return "PONG"
+    return SPC_SUCCESS_STATUS
 
 
 def _handle_status(
@@ -272,7 +281,7 @@ def _handle_start_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.start(registry)
-    return "OK"
+    return SPC_SUCCESS_STATUS
 
 
 def _handle_stop_tracking(
@@ -281,7 +290,7 @@ def _handle_stop_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.stop(registry)
-    return "OK"
+    return SPC_SUCCESS_STATUS
 
 
 def _handle_clear_tracking(
@@ -290,7 +299,7 @@ def _handle_clear_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.clear(registry)
-    return "OK"
+    return SPC_SUCCESS_STATUS
 
 
 def _handle_return_tracking(

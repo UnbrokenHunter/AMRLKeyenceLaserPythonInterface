@@ -27,6 +27,8 @@ from queue import Queue
 
 from src.bridge.bridge_events import BridgeEvent, BridgeEventType
 from src.bridge.spc_commands import (
+    SPC_FAILURE_STATUS,
+    SPC_SUCCESS_STATUS,
     SpcCommandContext,
     create_default_spc_command_registry,
 )
@@ -666,28 +668,28 @@ class BridgeController:
 
     def _start_stream_for_spc(self) -> str:
         if self.state.streaming:
-            return "OK"
+            return SPC_SUCCESS_STATUS
 
         self.start_stream()
 
         if self.state.streaming:
-            return "OK"
+            return SPC_SUCCESS_STATUS
 
-        return f"ERROR {self.state.last_error or 'STREAM_NOT_STARTED'}"
+        return SPC_FAILURE_STATUS
 
     def start_stream_for_spc(self) -> str:
         return self._start_stream_for_spc()
 
     def _stop_stream_for_spc(self) -> str:
         if not self.state.streaming:
-            return "OK"
+            return SPC_SUCCESS_STATUS
 
         self.stop_stream()
 
         if not self.state.streaming:
-            return "OK"
+            return SPC_SUCCESS_STATUS
 
-        return f"ERROR {self.state.last_error or 'STREAM_NOT_STOPPED'}"
+        return SPC_FAILURE_STATUS
 
     def stop_stream_for_spc(self) -> str:
         return self._stop_stream_for_spc()

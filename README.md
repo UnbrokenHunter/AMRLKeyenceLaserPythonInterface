@@ -342,15 +342,15 @@ The app's SPC command documentation is generated from the command registry in `s
 
 | Command | Aliases | Purpose | Reply |
 | --- | --- | --- | --- |
-| `PING` | | Check whether the Python bridge is responding. | `PONG` |
+| `PING` | | Check whether the Python bridge is responding. | `1` |
 | `STATUS` | | Return current bridge, SPC peer, stream, and height state. | `KEYENCE_CONNECTED=...;SPC_CONNECTED=...;STREAMING=...;HEIGHT=...` |
 | `GET_LAST_HEIGHT` | `GET_HEIGHT`, `HEIGHT?` | Return the latest known Keyence height without forcing a read. | numeric height or `NO_HEIGHT` |
 | `READ_HEIGHT` | `READ_ONCE` | Perform a fresh averaged Keyence read and return the height. | numeric height or `ERROR ...` |
-| `START_STREAM` | | Start Keyence automatic transmission. | `OK` or `ERROR ...` |
-| `STOP_STREAM` | | Stop Keyence automatic transmission. | `OK` or `ERROR ...` |
-| `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `OK` or `ERROR ...` |
-| `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `OK` or `ERROR ...` |
-| `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `OK` or `ERROR ...` |
+| `START_STREAM` | | Start Keyence automatic transmission. | `1` on success, `0` on failure |
+| `STOP_STREAM` | | Stop Keyence automatic transmission. | `1` on success, `0` on failure |
+| `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `1` on success, `0` on failure |
+| `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `1` on success, `0` on failure |
+| `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `1` on success, `0` on failure |
 | `RETURN_TRACKING <registry>` | | Return all samples from a named tracking registry. | `TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>` |
 | `AVERAGE_TRACKING <registry>` | `AVG_TRACKING` | Return the average of a named tracking registry. | `TRACKING_AVG <registry> <value>` or `NO_TRACKING_DATA <registry>` |
 | `MAX_TRACKING <registry>` | | Return the maximum sample in a named tracking registry. | `TRACKING_MAX <registry> <value>` or `NO_TRACKING_DATA <registry>` |
@@ -359,8 +359,8 @@ The app's SPC command documentation is generated from the command registry in `s
 Reply rules:
 
 - Data commands return data.
-- Successful state-changing commands return only `OK`.
-- Failures return `ERROR ...`.
+- Boolean/status-style commands use numeric replies so SPC does not need string comparison.
+- For those commands, `1` means success and `0` means failure.
 - Unknown commands return `ERROR UNKNOWN_COMMAND <message>`.
 
 ### Tracking Registries
@@ -419,11 +419,11 @@ Examples:
 
 ```text
 ERROR UNKNOWN_COMMAND FOO
-ERROR START_TRACKING Tracking registry argument is required
+0
 ERROR KEYENCE_NOT_CONNECTED
 ```
 
-These are sent back to SPC as replies and logged in SPC Coms as `TX`.
+Boolean/status-style command failures are sent back as `0` and logged in SPC Coms as `TX`. Data-command and unknown-command errors may still return `ERROR ...` text for diagnosis.
 
 ### App/system errors
 

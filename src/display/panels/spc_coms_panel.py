@@ -14,8 +14,7 @@ class SpcComsPanel(CommonComsPanel):
             default_show_rx=True,
             default_raw=True,
             command_comments=[
-                CommandComment("PING", "Check whether SPC is responding"),
-                CommandComment("PONG", "Reply to SPC heartbeat check"),
+                CommandComment("PING", "Check whether the bridge replies with numeric success"),
                 CommandComment("STATUS", "Read bridge/Keyence/SPC status"),
                 CommandComment("GET_LAST_HEIGHT", "Request latest known Keyence height"),
                 CommandComment("GET_HEIGHT", "Alias for GET_LAST_HEIGHT"),
@@ -33,7 +32,6 @@ class SpcComsPanel(CommonComsPanel):
                 CommandComment("AVG_TRACKING", "Alias for AVERAGE_TRACKING"),
                 CommandComment("MAX_TRACKING", "Return the maximum of a tracking registry"),
                 CommandComment("MIN_TRACKING", "Return the minimum of a tracking registry"),
-                CommandComment("OK", "Command completed successfully"),
                 CommandComment("RESET", "Reset the SPC process state"),
             ],
             *args,
