@@ -26,7 +26,7 @@ class GraphSample:
 
 
 class HeightGraphPanel(Vertical):
-    class ExportRequested(Message):
+    class InvalidVisibilityChanged(Message):
         def __init__(self, source: "HeightGraphPanel") -> None:
             super().__init__()
             self.source = source
@@ -36,15 +36,16 @@ class HeightGraphPanel(Vertical):
         self.samples: list[GraphSample] = []
         self.title = "Live Height"
         self.source_kind = "LIVE"
+        self.include_invalid = True
 
     def compose(self) -> ComposeResult:
         self.add_class("height-graph-panel")
         with Horizontal(classes="height-title-row"):
             yield Label(self.title, id="height-graph-title", classes="panel-title")
             yield Static(
-                "CSV",
-                id="height-export-csv",
-                classes="coms-filter-mini enabled height-export-button",
+                "INV",
+                id="height-include-invalid",
+                classes="coms-filter-mini enabled height-invalid-toggle",
             )
 
         yield Static("Height: --", id="height-current-value", classes="height-current-value")
@@ -56,8 +57,10 @@ class HeightGraphPanel(Vertical):
         yield Static("", id="height-graph")
 
     def on_click(self, event: Click) -> None:
-        if event.widget and event.widget.id == "height-export-csv":
-            self.post_message(self.ExportRequested(self))
+        if event.widget and event.widget.id == "height-include-invalid":
+            self.include_invalid = not self.include_invalid
+            self._sync_invalid_toggle()
+            self.post_message(self.InvalidVisibilityChanged(self))
             event.stop()
 
     def set_samples(
@@ -71,6 +74,12 @@ class HeightGraphPanel(Vertical):
         self.source_kind = source_kind
         self.samples = list(samples)
         self.query_one("#height-graph-title", Label).update(title)
+        self._sync_invalid_toggle()
+        self._render_graph()
+
+    def set_include_invalid(self, include_invalid: bool) -> None:
+        self.include_invalid = include_invalid
+        self._sync_invalid_toggle()
         self._render_graph()
 
     def on_resize(self, _: Resize) -> None:
@@ -81,20 +90,22 @@ class HeightGraphPanel(Vertical):
         value_label = self.query_one("#height-current-value", Static)
         stats_label = self.query_one("#height-graph-stats", Static)
 
-        if not self.samples:
+        samples = self._display_samples()
+
+        if not samples:
             value_label.update("Height: --")
             stats_label.update("Min: --  Max: --  Avg: --")
             graph.update("")
             return
 
-        latest = self.samples[-1]
+        latest = samples[-1]
 
         if latest.valid:
             value_label.update(f"Height: {latest.value_mm:.5f} mm")
         else:
             value_label.update(f"Height: INVALID ({latest.value_mm:.5f} mm)")
 
-        valid_values = [sample.value_mm for sample in self.samples if sample.valid]
+        valid_values = [sample.value_mm for sample in samples if sample.valid]
 
         if valid_values:
             min_value = min(valid_values)
@@ -145,7 +156,7 @@ class HeightGraphPanel(Vertical):
         graph.update("\n".join(lines))
 
     def _samples_for_width(self, width: int) -> list[GraphSample]:
-        samples = list(self.samples)
+        samples = self._display_samples()
 
         if len(samples) <= width:
             return samples
@@ -165,7 +176,7 @@ class HeightGraphPanel(Vertical):
         if self.source_kind == "LIVE":
             timestamps = [
                 sample.timestamp
-                for sample in self.samples
+                for sample in self._display_samples()
                 if sample.timestamp is not None
             ]
 
@@ -177,10 +188,21 @@ class HeightGraphPanel(Vertical):
             right = "now"
         else:
             left = "1"
-            right = str(len(self.samples))
+            right = str(len(self._display_samples()))
 
         gap = max(1, width - len(left) - len(right))
         return left + (" " * gap) + right
+
+    def _display_samples(self) -> list[GraphSample]:
+        if self.include_invalid:
+            return list(self.samples)
+
+        return [sample for sample in self.samples if sample.valid]
+
+    def _sync_invalid_toggle(self) -> None:
+        toggle = self.query_one("#height-include-invalid", Static)
+        toggle.set_class(self.include_invalid, "enabled")
+        toggle.set_class(not self.include_invalid, "disabled")
 
 
 @dataclass(frozen=True)
@@ -192,6 +214,11 @@ class HeightSource:
 
 
 class HeightSourceSelector(Vertical):
+    class ExportRequested(Message):
+        def __init__(self, source: "HeightSourceSelector") -> None:
+            super().__init__()
+            self.source = source
+
     def compose(self) -> ComposeResult:
         self.add_class("height-source-panel")
         yield Label("Height Source", classes="panel-title")
@@ -203,6 +230,16 @@ class HeightSourceSelector(Vertical):
             classes="height-source-select",
         )
         yield Static("", id="height-source-list")
+        yield Static(
+            "EXPORT CSV",
+            id="height-export-csv",
+            classes="coms-filter-mini enabled height-export-button",
+        )
+
+    def on_click(self, event: Click) -> None:
+        if event.widget and event.widget.id == "height-export-csv":
+            self.post_message(self.ExportRequested(self))
+            event.stop()
 
 
 class ContinuousKeyencePanel(Horizontal):
@@ -217,6 +254,7 @@ class ContinuousKeyencePanel(Horizontal):
         self.live_samples: deque[GraphSample] = deque(maxlen=max_live_points)
         self.sources: list[HeightSource] = []
         self.selected_source_key = "LIVE"
+        self.include_invalid = True
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -291,9 +329,9 @@ class ContinuousKeyencePanel(Horizontal):
 
         event.stop()
 
-    def on_height_graph_panel_export_requested(
+    def on_height_source_selector_export_requested(
         self,
-        event: HeightGraphPanel.ExportRequested,
+        event: HeightSourceSelector.ExportRequested,
     ) -> None:
         event.stop()
 
@@ -304,6 +342,14 @@ class ContinuousKeyencePanel(Horizontal):
             return
 
         self.post_message(self.ExportCompleted(path=str(path)))
+
+    def on_height_graph_panel_invalid_visibility_changed(
+        self,
+        event: HeightGraphPanel.InvalidVisibilityChanged,
+    ) -> None:
+        event.stop()
+        self.include_invalid = event.source.include_invalid
+        self._render_selected_source()
 
     def export_selected_source(self) -> Path:
         source_name = self._selected_export_name()
@@ -361,6 +407,7 @@ class ContinuousKeyencePanel(Horizontal):
 
     def _render_selected_source(self) -> None:
         graph = self.query_one("#height-graph-panel", HeightGraphPanel)
+        graph.set_include_invalid(self.include_invalid)
 
         if self.selected_source_key == "LIVE":
             graph.set_samples(
@@ -395,7 +442,8 @@ class ContinuousKeyencePanel(Horizontal):
 
     def _selected_samples(self) -> list[GraphSample]:
         if self.selected_source_key == "LIVE":
-            return list(self.live_samples)
+            samples = list(self.live_samples)
+            return self._filter_invalid_samples(samples)
 
         source = next(
             (
@@ -406,13 +454,22 @@ class ContinuousKeyencePanel(Horizontal):
             None,
         )
 
-        return [] if source is None else list(source.samples)
+        if source is None:
+            return []
+
+        return self._filter_invalid_samples(list(source.samples))
 
     def _selected_export_name(self) -> str:
         if self.selected_source_key == "LIVE":
             return "live"
 
         return f"register-{self.selected_source_key.removeprefix('TRACK:')}"
+
+    def _filter_invalid_samples(self, samples: list[GraphSample]) -> list[GraphSample]:
+        if self.include_invalid:
+            return samples
+
+        return [sample for sample in samples if sample.valid]
 
     @staticmethod
     def _parse_keyence_response(message: str) -> InputReading:

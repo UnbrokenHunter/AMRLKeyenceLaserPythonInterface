@@ -323,6 +323,8 @@ Displayed statistics:
 - maximum
 - average
 
+The `INV` toggle controls whether invalid readings are included in the graph and CSV export. The `EXPORT CSV` button exports the currently selected source to the project `exports` folder.
+
 The Height panel is for operator visibility. SPC command replies are still handled through the SPC serial request/reply path.
 
 ### Simulator Mode

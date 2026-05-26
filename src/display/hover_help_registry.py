@@ -30,6 +30,7 @@ HELP_ITEMS = {
     "#height-source-list": "Available height sources. Active trackers are marked and show sample counts.",
     "#height-graph-panel": "Height graph and summary statistics for the selected source.",
     "#height-export-csv": "Export the selected height source to a CSV file in the project exports folder.",
+    "#height-include-invalid": "Toggle whether invalid readings are included in the graph and CSV export.",
     "#height-current-value": "Most recent height value for the selected source.",
     "#height-graph-stats": "Minimum, maximum, and average of valid values in the selected source.",
     "#height-graph": "ASCII height plot. LIVE shows recent samples; trackers show the full registry history compressed to fit.",
