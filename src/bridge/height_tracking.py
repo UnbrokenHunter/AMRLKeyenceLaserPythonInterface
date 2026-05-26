@@ -44,6 +44,14 @@ class HeightTrackerManager:
         track.samples.clear()
         track.current_layer_index = 0
 
+    def clear_layer(self, registry: str, layer_index: int) -> None:
+        track = self._get_track(registry)
+        track.samples = [
+            sample
+            for sample in track.samples
+            if sample.layer_index != layer_index
+        ]
+
     def next_layer(self, registry: str) -> int:
         track = self._get_track(registry)
         track.current_layer_index += 1

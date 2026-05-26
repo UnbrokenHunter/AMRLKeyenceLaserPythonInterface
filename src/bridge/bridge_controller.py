@@ -526,6 +526,16 @@ class BridgeController:
         self._status_changed()
         return registry
 
+    def clear_tracking_registry_layer(self, registry: str, layer_index: int) -> str:
+        registry = self.height_trackers.ensure(registry)
+        self.height_trackers.clear_layer(registry, layer_index)
+        self._emit(
+            BridgeEventType.SYSTEM,
+            f"Tracking registry cleared: {registry} layer {layer_index}",
+        )
+        self._status_changed()
+        return registry
+
     def drain_events(self) -> list[BridgeEvent]:
         events: list[BridgeEvent] = []
 

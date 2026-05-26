@@ -266,7 +266,13 @@ class BridgeTuiApp(App):
             return
 
         try:
-            self.controller.clear_tracking_registry(message.registry)
+            if message.layer == "ALL":
+                self.controller.clear_tracking_registry(message.registry)
+            else:
+                self.controller.clear_tracking_registry_layer(
+                    message.registry,
+                    int(message.layer),
+                )
         except Exception as error:
             self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_system(
                 f"CLEAR failed: {error}"

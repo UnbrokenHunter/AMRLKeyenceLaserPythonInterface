@@ -30,7 +30,7 @@ HELP_ITEMS = {
     "#height-register-input": "Temporary register-name field. Press Enter to create it, or Escape/blank Enter to cancel.",
     "#height-layer-select": "Choose all layers or one scan layer for the selected tracking registry.",
     "#height-toggle-register": "Start or stop the selected tracking registry. This matches START_TRACKING and STOP_TRACKING behavior.",
-    "#height-clear-register": "Clear all samples from the selected tracking registry and reset it to layer 0.",
+    "#height-clear-register": "Clear the selected tracking registry view. ALL LAYERS clears the whole registry; a selected layer clears only that layer.",
     "#height-source-list": "Available height sources. Active trackers are marked and show sample counts.",
     "#height-graph-panel": "Height graph and summary statistics for the selected source.",
     "#height-export-csv": "Export the selected height source to a CSV file in the project exports folder.",

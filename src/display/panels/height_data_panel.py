@@ -259,7 +259,13 @@ class HeightSourceSelector(Vertical):
             value="ALL",
             classes="height-source-select",
         )
-        with Horizontal(classes="height-register-actions"):
+        with Horizontal(classes="height-layer-actions"):
+            yield Static(
+                "NEXT LAYER",
+                id="height-next-layer",
+                classes="coms-filter-mini enabled height-layer-action",
+            )
+            yield Static("", classes="height-action-spacer")
             yield Static(
                 "START",
                 id="height-toggle-register",
@@ -270,17 +276,13 @@ class HeightSourceSelector(Vertical):
                 id="height-clear-register",
                 classes="coms-filter-mini disabled height-register-action",
             )
+        with Horizontal(classes="height-export-actions"):
+            yield Static(
+                "EXPORT CSV",
+                id="height-export-csv",
+                classes="coms-filter-mini enabled height-export-button",
+            )
         yield Static("", id="height-source-list")
-        yield Static(
-            "NEXT LAYER",
-            id="height-next-layer",
-            classes="coms-filter-mini enabled height-export-button",
-        )
-        yield Static(
-            "EXPORT CSV",
-            id="height-export-csv",
-            classes="coms-filter-mini enabled height-export-button",
-        )
 
     def on_click(self, event: Click) -> None:
         if event.widget and event.widget.id == "height-export-csv":
@@ -359,9 +361,10 @@ class HeightDataPanel(Horizontal):
             self.enable = enable
 
     class ClearRegistryRequested(Message):
-        def __init__(self, registry: str | None) -> None:
+        def __init__(self, registry: str | None, layer: str) -> None:
             super().__init__()
             self.registry = registry
+            self.layer = layer
 
     def __init__(self, *args, max_live_points: int = 120, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -530,7 +533,12 @@ class HeightDataPanel(Horizontal):
         event: HeightSourceSelector.ClearRegistryRequested,
     ) -> None:
         event.stop()
-        self.post_message(self.ClearRegistryRequested(self._selected_registry()))
+        self.post_message(
+            self.ClearRegistryRequested(
+                self._selected_registry(),
+                layer=self._selected_layer_value(),
+            )
+        )
 
     def on_height_source_selector_create_registry_requested(
         self,
@@ -768,8 +776,16 @@ class HeightDataPanel(Horizontal):
         if source is None:
             return "ALL"
 
-        selected_layer = self.selected_layers.get(source.key, "ALL")
+        selected_layer = self._selected_layer_value()
         return "ALL" if selected_layer == "ALL" else f"LAYER {selected_layer}"
+
+    def _selected_layer_value(self) -> str:
+        source = self._selected_tracker_source()
+
+        if source is None:
+            return "ALL"
+
+        return self.selected_layers.get(source.key, "ALL")
 
     def _filter_invalid_samples(self, samples: list[GraphSample]) -> list[GraphSample]:
         if self.include_invalid:

@@ -289,7 +289,7 @@ RichLog {
 }
 
 .height-register-input {
-    height: 3;
+    height: 1;
     margin-top: 0;
     margin-bottom: 0;
     margin-left: 1;
@@ -297,17 +297,35 @@ RichLog {
     width: 1fr;
 }
 
-.height-register-actions {
+.height-layer-actions {
     height: 1;
     margin-top: 1;
-    margin-bottom: 1;
+    margin-bottom: 0;
     align: left middle;
 }
 
 .height-register-action {
-    width: 8;
+    width: 7;
     margin-left: 0;
     margin-right: 1;
+}
+
+.height-layer-action {
+    width: 12;
+    margin-left: 0;
+    margin-right: 1;
+}
+
+.height-action-spacer {
+    width: 1fr;
+    height: 1;
+}
+
+.height-export-actions {
+    height: 1;
+    margin-top: 1;
+    margin-bottom: 1;
+    align: left middle;
 }
 
 #height-source-list {
@@ -334,7 +352,13 @@ RichLog {
 
 .height-export-button {
     width: 12;
-    margin-top: 1;
+    margin-left: 0;
+    margin-right: 1;
+}
+
+#height-export-csv {
+    background: #255b82;
+    color: #ffffff;
 }
 
 .height-invalid-toggle {
