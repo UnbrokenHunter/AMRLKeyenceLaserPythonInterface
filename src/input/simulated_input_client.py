@@ -1,8 +1,12 @@
-"""
-Simulated Keyence input client.
+"""Simulated Keyence input client.
 
 This implements the same InputClient interface as KeyenceInputClient, but it does
-not use serial hardware.
+not use serial hardware. It exists for programming/debugging workflows where the
+real Keyence controller is unavailable.
+
+The simulator is intentionally narrow and may lag newer bridge behavior. Treat it
+as a convenience for testing Keyence-style command handling and UI flows, not as
+a full SPC/com0com/hardware substitute.
 """
 
 from __future__ import annotations

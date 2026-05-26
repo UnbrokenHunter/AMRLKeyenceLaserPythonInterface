@@ -1,5 +1,12 @@
-"""
-Main Textual orchestrator.
+"""Main Textual UI orchestrator.
+
+BridgeTuiApp composes the display/status/control layer. It does not own hardware
+behavior directly; it calls BridgeController, drains controller events, and
+routes those events into panels such as SPC Coms, Keyence Coms, status panels,
+the SPC Docs panel, and the height graph.
+
+The app also installs footer hover-help. Floating tooltips are disabled; help is
+shown in the footer bar so the dense terminal UI stays readable.
 """
 
 from __future__ import annotations

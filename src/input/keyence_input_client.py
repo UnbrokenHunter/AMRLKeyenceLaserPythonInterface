@@ -1,3 +1,15 @@
+"""Real serial client for the Keyence controller.
+
+KeyenceInputClient owns the RS232/USB-RS232 conversation with the Keyence
+controller. It sends Keyence commands, parses one-shot measurement responses,
+starts/stops automatic transmission, and converts stream lines into InputReading
+objects for the controller.
+
+The client does not know about SPC recipes or UI panels. BridgeController uses
+this client as the real hardware implementation of the shared InputClient
+interface.
+"""
+
 from __future__ import annotations
 
 import time

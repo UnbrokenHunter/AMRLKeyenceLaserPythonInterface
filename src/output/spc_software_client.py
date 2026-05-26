@@ -1,7 +1,11 @@
 """Serial peer for SpiiPlusSPC software.
 
 SPC is software on the PC, not hardware controlled by this app. This client
-opens the Python side of a virtual COM pair and waits for SPC to request data.
+opens the Python side of a com0com virtual COM pair and waits for SPC to request
+data. For example, SPC may open COM20 while Python opens the paired COM21.
+
+Reads are line-oriented with flexible input terminators. Replies are encoded as
+ASCII and are terminated with the configured SPC reply terminator, usually CRLF.
 """
 
 from __future__ import annotations

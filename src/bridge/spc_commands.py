@@ -1,7 +1,13 @@
 """SPC request command registry.
 
-SPC sends line-oriented requests to the bridge. This module owns the list of
-recognized request names, their descriptions, aliases, and dispatch handlers.
+SPC sends line-oriented requests to the bridge through the virtual serial link.
+This module is the source of truth for accepted SPC commands, their aliases,
+their descriptions, their reply descriptions, and their handler functions.
+
+The in-app SPC Docs panel reads from this registry. When a command is added or
+changed here, the UI documentation changes with it. Duplicate command names or
+aliases raise an error when the registry is built so ambiguous SPC messages do
+not silently dispatch to the wrong handler.
 """
 
 from __future__ import annotations

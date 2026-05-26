@@ -1,22 +1,22 @@
-"""
-Application controller.
+"""Application controller and bridge coordinator.
 
-This is the object that connects the UI to your actual bridge logic.
+BridgeController is the central state owner for the app. The Textual UI calls
+methods on this object to connect, read, start/stop streams, update settings,
+toggle simulator mode, and handle manual commands. The UI then reads
+``controller.state`` and drains ``controller.drain_events()`` to update panels.
 
-The UI should mostly call methods on this class:
-    controller.connect()
-    controller.start_stream()
-    controller.stop_stream()
-    controller.read_once()
-    controller.set_ports(...)
-    controller.set_simulator(...)
+SPC request flow:
+    1. SpcSoftwareClient reads a line from the Python side of the com0com pair.
+    2. poll_spc_once emits SPC_RECEIVED and passes the message to the command registry.
+    3. The registry dispatches a handler, usually back into this controller.
+    4. The controller talks to Keyence, simulator, or tracking state as needed.
+    5. poll_spc_once sends the reply back to SPC and emits SPC_SENT.
 
-Then the UI reads:
-    controller.state
-    controller.drain_events()
-
-Later, this controller is where you add the SPC serial client and background
-threads/async tasks.
+Keyence read flow:
+    1. The UI or SPC asks for a height.
+    2. The controller calls the active InputClient.
+    3. Real mode uses KeyenceInputClient; simulator mode uses SimulatedInputClient.
+    4. Valid readings update bridge state, live height display, and active trackers.
 """
 
 from __future__ import annotations
