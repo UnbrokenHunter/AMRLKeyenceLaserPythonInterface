@@ -393,10 +393,11 @@ RichLog {
     padding: 0 1;
     background: #151b21;
     align: left middle;
+    overflow-x: auto;
 }
 
 .control-bar {
-    width: 1fr;
+    width: auto;
     height: 7;
     align: left middle;
 }
