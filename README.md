@@ -361,6 +361,8 @@ The app's SPC command documentation is generated from the command registry in `s
 | `STOP_STREAM` | | Stop Keyence automatic transmission. | `1` on success, `0` on failure |
 | `START_TRACKING <registry>` | | Start appending valid heights to a named tracking registry. | `1` on success, `0` on failure |
 | `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `1` on success, `0` on failure |
+| `PAUSE_TRACKING <registry>` | | Temporarily stop appending heights without ending the tracking session. | `1` on success, `0` on failure |
+| `RESUME_TRACKING <registry>` | | Resume appending heights to a paused tracking registry. | `1` on success, `0` on failure |
 | `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `1` on success, `0` on failure |
 | `NEXT_LAYER <registry>` | `NEXT_SCAN_LAYER` | Advance a tracking registry to a new scan layer. | `1` on success, `0` on failure |
 | `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
@@ -414,6 +416,16 @@ RETURN_TRACKING 2
 
 Active trackers collect valid Keyence height samples whenever the bridge records a valid height. This can happen from reads or stream updates.
 
+Use pause/resume tracking to ignore transition motion while Keyence streaming continues:
+
+```text
+PAUSE_TRACKING 1
+NEXT_LAYER 1
+RESUME_TRACKING 1
+```
+
+`PAUSE_TRACKING` stops adding new samples to the registry without stopping Keyence streaming or resetting the current layer. `RESUME_TRACKING` starts appending samples again into the current layer.
+
 Registries can also be divided into scan layers. A layer is only an ordering marker; it does not imply X, Y, or any physical offset. Use:
 
 ```text
@@ -429,6 +441,8 @@ RETURN_TRACKING 1
 AVERAGE_TRACKING 1
 MAX_TRACKING 1
 MIN_TRACKING 1
+PAUSE_TRACKING 1
+RESUME_TRACKING 1
 NEXT_LAYER 1
 SAVE_CSV 1
 ```

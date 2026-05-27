@@ -20,6 +20,7 @@ class TrackedHeightSample:
 @dataclass
 class HeightTrack:
     active: bool = False
+    paused: bool = False
     current_layer_index: int = 0
     samples: list[TrackedHeightSample] = field(default_factory=list)
 
@@ -34,10 +35,22 @@ class HeightTrackerManager:
         return registry
 
     def start(self, registry: str) -> None:
-        self._get_track(registry).active = True
+        track = self._get_track(registry)
+        track.active = True
+        track.paused = False
 
     def stop(self, registry: str) -> None:
-        self._get_track(registry).active = False
+        track = self._get_track(registry)
+        track.active = False
+        track.paused = False
+
+    def pause(self, registry: str) -> None:
+        self._get_track(registry).paused = True
+
+    def resume(self, registry: str) -> None:
+        track = self._get_track(registry)
+        track.active = True
+        track.paused = False
 
     def clear(self, registry: str) -> None:
         track = self._get_track(registry)
@@ -59,7 +72,7 @@ class HeightTrackerManager:
 
     def add_sample(self, value_mm: float) -> None:
         for track in self._tracks.values():
-            if track.active:
+            if track.active and not track.paused:
                 layer_sample_index = (
                     sum(
                         1
@@ -110,6 +123,9 @@ class HeightTrackerManager:
 
     def is_active(self, registry: str) -> bool:
         return self._get_track(registry).active
+
+    def is_paused(self, registry: str) -> bool:
+        return self._get_track(registry).paused
 
     def current_layer(self, registry: str) -> int:
         return self._get_track(registry).current_layer_index

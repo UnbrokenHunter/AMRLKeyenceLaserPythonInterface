@@ -144,6 +144,16 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    spc_command_pattern("PAUSE_TRACKING"),
+                    "Pause collection for a tracking registry while keeping the session open",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("RESUME_TRACKING"),
+                    "Resume collection for a paused tracking registry",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("CLEAR_TRACKING"),
                     "Clear samples from a named tracking registry",
                     regex=True,

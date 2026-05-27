@@ -218,6 +218,7 @@ class HeightSource:
     layers: dict[int, list[GraphSample]]
     current_layer_index: int = 0
     active: bool = False
+    paused: bool = False
 
 
 class HeightSourceSelector(Vertical):
@@ -416,14 +417,15 @@ class HeightDataPanel(Horizontal):
 
     def set_tracker_sources(
         self,
-        trackers: dict[str, tuple[bool, int, dict[int, list[float]]]],
+        trackers: dict[str, tuple[bool, bool, int, dict[int, list[float]]]],
     ) -> None:
         self.sources = [
             HeightSource(
                 key=f"TRACK:{registry}",
                 label=(
                     f"{registry} "
-                    f"({'ON' if active else 'OFF'}, {self._layer_count(layers)} samples, "
+                    f"({self._tracking_state_label(active, paused)}, "
+                    f"{self._layer_count(layers)} samples, "
                     f"layer {current_layer})"
                 ),
                 samples=[
@@ -450,8 +452,9 @@ class HeightDataPanel(Horizontal):
                 },
                 current_layer_index=current_layer,
                 active=active,
+                paused=paused,
             )
-            for registry, (active, current_layer, layers) in sorted(trackers.items())
+            for registry, (active, paused, current_layer, layers) in sorted(trackers.items())
         ]
 
         available_keys = {"LIVE"} | {source.key for source in self.sources}
@@ -813,6 +816,13 @@ class HeightDataPanel(Horizontal):
     @staticmethod
     def _layer_count(layers: dict[int, list[float]]) -> int:
         return sum(len(values) for values in layers.values())
+
+    @staticmethod
+    def _tracking_state_label(active: bool, paused: bool) -> str:
+        if active and paused:
+            return "PAUSED"
+
+        return "ON" if active else "OFF"
 
     @staticmethod
     def _parse_keyence_response(message: str) -> InputReading:

@@ -188,6 +188,23 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_stop_tracking,
             ),
             SpcCommand(
+                name="PAUSE_TRACKING",
+                description=(
+                    "Temporarily stop appending heights to a named tracking "
+                    "registry without ending the tracking session."
+                ),
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_pause_tracking,
+            ),
+            SpcCommand(
+                name="RESUME_TRACKING",
+                description="Resume appending heights to a paused tracking registry.",
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_resume_tracking,
+            ),
+            SpcCommand(
                 name="CLEAR_TRACKING",
                 description="Clear all samples from a named tracking registry.",
                 reply_description="1 on success, 0 on failure.",
@@ -302,6 +319,8 @@ _SPC_SPACED_COMMANDS = {
     "STOP_STREAM",
     "START_TRACKING",
     "STOP_TRACKING",
+    "PAUSE_TRACKING",
+    "RESUME_TRACKING",
     "CLEAR_TRACKING",
     "NEXT_LAYER",
     "NEXT_SCAN_LAYER",
@@ -408,6 +427,24 @@ def _handle_stop_tracking(
 ) -> str:
     registry = _tracking_registry_arg(parsed)
     context.controller.height_trackers.stop(registry)
+    return SPC_SUCCESS_STATUS
+
+
+def _handle_pause_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.pause(registry)
+    return SPC_SUCCESS_STATUS
+
+
+def _handle_resume_tracking(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.resume(registry)
     return SPC_SUCCESS_STATUS
 
 

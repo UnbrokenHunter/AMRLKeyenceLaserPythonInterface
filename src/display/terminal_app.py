@@ -449,6 +449,7 @@ class BridgeTuiApp(App):
             {
                 registry: (
                     self.controller.height_trackers.is_active(registry),
+                    self.controller.height_trackers.is_paused(registry),
                     self.controller.height_trackers.current_layer(registry),
                     self.controller.height_trackers.layers(registry),
                 )
