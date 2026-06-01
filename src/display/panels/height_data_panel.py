@@ -392,6 +392,7 @@ class HeightDataPanel(Horizontal):
         self.include_invalid = True
         self._source_select_options: tuple[tuple[str, str], ...] = ()
         self._layer_select_options: tuple[tuple[str, str], ...] = ()
+        self._defer_select_render = False
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -483,8 +484,12 @@ class HeightDataPanel(Horizontal):
             self.selected_source_key = "LIVE"
             self.previous_source_key = "LIVE"
 
-        self._render_source_select()
-        self._render_layer_select()
+        if self._height_select_is_expanded():
+            self._defer_select_render = True
+        else:
+            self._render_source_select()
+            self._render_layer_select()
+
         self._sync_register_action_buttons()
         self._render_source_list()
         self._render_selected_source()
@@ -495,6 +500,8 @@ class HeightDataPanel(Horizontal):
 
         if isinstance(event.value, str):
             if event.select.id == "height-source-select":
+                self._defer_select_render = False
+
                 if event.value == CREATE_NEW_SOURCE_KEY:
                     self._show_create_input()
                     event.stop()
@@ -513,6 +520,7 @@ class HeightDataPanel(Horizontal):
                 self._render_selected_source()
 
             elif event.select.id == "height-layer-select":
+                self._defer_select_render = False
                 self.selected_layers[self.selected_source_key] = event.value
                 self._render_source_list()
                 self._render_selected_source()
@@ -632,6 +640,10 @@ class HeightDataPanel(Horizontal):
         self.query_one("#height-source-list", Static).update("\n".join(rows))
 
     def _render_source_select(self) -> None:
+        if self._height_select_is_expanded():
+            self._defer_select_render = True
+            return
+
         select = self.query_one("#height-source-select", Select)
         options = tuple([("LIVE", "LIVE")] + [
             (source.label, source.key)
@@ -646,6 +658,10 @@ class HeightDataPanel(Horizontal):
             select.value = self.selected_source_key
 
     def _render_layer_select(self) -> None:
+        if self._height_select_is_expanded():
+            self._defer_select_render = True
+            return
+
         select = self.query_one("#height-layer-select", Select)
         source = self._selected_tracker_source()
 
@@ -678,6 +694,11 @@ class HeightDataPanel(Horizontal):
 
         if select.value != selected:
             select.value = selected
+
+    def _height_select_is_expanded(self) -> bool:
+        source_select = self.query_one("#height-source-select", Select)
+        layer_select = self.query_one("#height-layer-select", Select)
+        return bool(source_select.expanded or layer_select.expanded)
 
     def _sync_register_action_buttons(self) -> None:
         source = self._selected_tracker_source()
