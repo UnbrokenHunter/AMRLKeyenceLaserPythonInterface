@@ -11,6 +11,8 @@ shown in the footer bar so the dense terminal UI stays readable.
 
 from __future__ import annotations
 
+import time
+
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.events import MouseMove
@@ -58,6 +60,7 @@ class BridgeTuiApp(App):
         self.program_logger = ProgramLogger(
             keep_count=controller.config.log_keep_count,
         )
+        self._last_height_tracker_refresh_at = 0.0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -282,6 +285,9 @@ class BridgeTuiApp(App):
         self._drain_controller_events()
 
     def watch_show_height_data(self, show: bool) -> None:
+        if show:
+            self._last_height_tracker_refresh_at = 0.0
+
         self.query_one("#height-data-panel", HeightDataPanel).set_class(
             show,
             "visible",
@@ -445,19 +451,35 @@ class BridgeTuiApp(App):
         docs_panel.set_commands(self.controller.spc_commands.describe_commands())
 
         height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
-        height_data_panel.set_tracker_sources(
-            {
-                registry: (
-                    self.controller.height_trackers.is_active(registry),
-                    self.controller.height_trackers.is_paused(registry),
-                    self.controller.height_trackers.current_layer(registry),
-                    self.controller.height_trackers.layers(registry),
-                )
-                for registry in self.controller.height_trackers.registries()
-            }
-        )
         height_data_panel.set_class(self.show_height_data, "visible")
+
+        if self.show_height_data and self._should_refresh_height_tracker_sources():
+            height_data_panel.set_tracker_sources(
+                {
+                    registry: (
+                        self.controller.height_trackers.is_active(registry),
+                        self.controller.height_trackers.is_paused(registry),
+                        self.controller.height_trackers.current_layer(registry),
+                        self.controller.height_trackers.layers(registry),
+                    )
+                    for registry in self.controller.height_trackers.registries()
+                }
+            )
+
         docs_panel.set_class(not self.show_spc_docs, "hidden")
+
+    def _should_refresh_height_tracker_sources(self) -> bool:
+        if not self.controller.state.streaming:
+            self._last_height_tracker_refresh_at = time.monotonic()
+            return True
+
+        now = time.monotonic()
+
+        if now - self._last_height_tracker_refresh_at < 0.25:
+            return False
+
+        self._last_height_tracker_refresh_at = now
+        return True
 
     def on_device_status_panel_port_changed(
         self,

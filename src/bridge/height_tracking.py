@@ -7,7 +7,6 @@ samples or summary values from each registry.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from statistics import mean
 
 
 @dataclass(frozen=True)
@@ -23,6 +22,10 @@ class HeightTrack:
     paused: bool = False
     current_layer_index: int = 0
     samples: list[TrackedHeightSample] = field(default_factory=list)
+    layers: dict[int, list[TrackedHeightSample]] = field(default_factory=dict)
+    sum_value: float = 0.0
+    min_value: float | None = None
+    max_value: float | None = None
 
 
 class HeightTrackerManager:
@@ -55,15 +58,24 @@ class HeightTrackerManager:
     def clear(self, registry: str) -> None:
         track = self._get_track(registry)
         track.samples.clear()
+        track.layers.clear()
         track.current_layer_index = 0
+        track.sum_value = 0.0
+        track.min_value = None
+        track.max_value = None
 
     def clear_layer(self, registry: str, layer_index: int) -> None:
         track = self._get_track(registry)
+        removed_samples = track.layers.pop(layer_index, [])
+
+        if not removed_samples:
+            return
+
+        removed_ids = {id(sample) for sample in removed_samples}
         track.samples = [
-            sample
-            for sample in track.samples
-            if sample.layer_index != layer_index
+            sample for sample in track.samples if id(sample) not in removed_ids
         ]
+        self._recalculate_summary(track)
 
     def next_layer(self, registry: str) -> int:
         track = self._get_track(registry)
@@ -73,21 +85,15 @@ class HeightTrackerManager:
     def add_sample(self, value_mm: float) -> None:
         for track in self._tracks.values():
             if track.active and not track.paused:
-                layer_sample_index = (
-                    sum(
-                        1
-                        for sample in track.samples
-                        if sample.layer_index == track.current_layer_index
-                    )
-                    + 1
+                layer_samples = track.layers.setdefault(track.current_layer_index, [])
+                sample = TrackedHeightSample(
+                    value_mm=value_mm,
+                    layer_index=track.current_layer_index,
+                    layer_sample_index=len(layer_samples) + 1,
                 )
-                track.samples.append(
-                    TrackedHeightSample(
-                        value_mm=value_mm,
-                        layer_index=track.current_layer_index,
-                        layer_sample_index=layer_sample_index,
-                    )
-                )
+                layer_samples.append(sample)
+                track.samples.append(sample)
+                self._record_summary(track, value_mm)
 
     def values(self, registry: str) -> list[float]:
         return [sample.value_mm for sample in self.samples(registry)]
@@ -96,27 +102,23 @@ class HeightTrackerManager:
         return list(self._get_track(registry).samples)
 
     def layers(self, registry: str) -> dict[int, list[float]]:
-        layers: dict[int, list[float]] = {}
-
-        for sample in self.samples(registry):
-            layers.setdefault(sample.layer_index, []).append(sample.value_mm)
-
-        return layers
+        return {
+            layer_index: [sample.value_mm for sample in samples]
+            for layer_index, samples in self._get_track(registry).layers.items()
+        }
 
     def registries(self) -> list[str]:
         return sorted(self._tracks.keys())
 
     def average(self, registry: str) -> float | None:
-        samples = self.values(registry)
-        return mean(samples) if samples else None
+        track = self._get_track(registry)
+        return track.sum_value / len(track.samples) if track.samples else None
 
     def minimum(self, registry: str) -> float | None:
-        samples = self.values(registry)
-        return min(samples) if samples else None
+        return self._get_track(registry).min_value
 
     def maximum(self, registry: str) -> float | None:
-        samples = self.values(registry)
-        return max(samples) if samples else None
+        return self._get_track(registry).max_value
 
     def count(self, registry: str) -> int:
         return len(self._get_track(registry).samples)
@@ -139,6 +141,29 @@ class HeightTrackerManager:
             self._tracks[registry] = track
 
         return track
+
+    @staticmethod
+    def _record_summary(track: HeightTrack, value_mm: float) -> None:
+        track.sum_value += value_mm
+        track.min_value = (
+            value_mm if track.min_value is None else min(track.min_value, value_mm)
+        )
+        track.max_value = (
+            value_mm if track.max_value is None else max(track.max_value, value_mm)
+        )
+
+    @staticmethod
+    def _recalculate_summary(track: HeightTrack) -> None:
+        track.sum_value = sum(sample.value_mm for sample in track.samples)
+
+        if not track.samples:
+            track.min_value = None
+            track.max_value = None
+            return
+
+        values = [sample.value_mm for sample in track.samples]
+        track.min_value = min(values)
+        track.max_value = max(values)
 
 
 def normalize_registry_name(registry: str) -> str:
