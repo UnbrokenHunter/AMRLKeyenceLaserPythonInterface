@@ -45,6 +45,7 @@ class HeightTrack:
     min_value: float | None = None
     max_value: float | None = None
     metadata: ScanMetadata = field(default_factory=ScanMetadata)
+    dirty: bool = False
 
 
 class HeightTrackerManager:
@@ -89,6 +90,7 @@ class HeightTrackerManager:
             track.sum_value = 0.0
             track.min_value = None
             track.max_value = None
+            track.dirty = False
 
     def clear_layer(self, registry: str, layer_index: int) -> None:
         with self._lock:
@@ -103,6 +105,7 @@ class HeightTrackerManager:
                 sample for sample in track.samples if id(sample) not in removed_ids
             ]
             self._recalculate_summary(track)
+            track.dirty = bool(track.samples)
 
     def next_layer(self, registry: str) -> int:
         with self._lock:
@@ -125,6 +128,7 @@ class HeightTrackerManager:
                     )
                     layer_samples.append(sample)
                     track.samples.append(sample)
+                    track.dirty = True
                     self._record_summary(track, value_mm)
 
     def set_metadata(
@@ -149,6 +153,7 @@ class HeightTrackerManager:
                 delta_y=current.delta_y if delta_y is None else delta_y,
                 scan_speed=current.scan_speed if scan_speed is None else scan_speed,
             )
+            track.dirty = bool(track.samples)
             return track.metadata
 
     def metadata(self, registry: str) -> ScanMetadata:
@@ -172,6 +177,18 @@ class HeightTrackerManager:
     def registries(self) -> list[str]:
         with self._lock:
             return sorted(self._tracks.keys())
+
+    def dirty_registries(self) -> list[str]:
+        with self._lock:
+            return sorted(
+                registry
+                for registry, track in self._tracks.items()
+                if track.dirty and track.samples
+            )
+
+    def mark_exported(self, registry: str) -> None:
+        with self._lock:
+            self._get_track(registry).dirty = False
 
     def average(self, registry: str) -> float | None:
         with self._lock:

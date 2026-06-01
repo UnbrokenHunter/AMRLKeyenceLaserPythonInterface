@@ -108,6 +108,7 @@ class BridgeTuiApp(App):
 
     def on_control_bar_close_requested(self, _: ControlBar.CloseRequested) -> None:
         self.controller.close()
+        self._drain_controller_events()
         self.program_logger.close()
         self.exit()
 

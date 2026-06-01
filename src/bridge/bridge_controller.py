@@ -167,6 +167,8 @@ class BridgeController:
         except Exception:
             pass
 
+        self.export_unexported_tracking_csvs()
+
         try:
             self.input_client.close()
             self.spc_client.disconnect()
@@ -1054,6 +1056,7 @@ class BridgeController:
     def export_tracking_csv_for_spc(self, registry: str) -> str:
         try:
             path = self.export_tracking_csv(registry)
+            self.height_trackers.mark_exported(registry)
             self._emit(BridgeEventType.SYSTEM, f"Exported tracking CSV: {path}")
             return SPC_SUCCESS_STATUS
         except Exception as error:
@@ -1087,6 +1090,30 @@ class BridgeController:
             samples=samples,
             keep_count=self.config.export_keep_count,
         )
+
+    def export_unexported_tracking_csvs(self) -> list[Path]:
+        exported_paths: list[Path] = []
+
+        for registry in self.height_trackers.dirty_registries():
+            try:
+                path = self.export_tracking_csv(registry)
+                self.height_trackers.mark_exported(registry)
+                exported_paths.append(path)
+                self._emit(
+                    BridgeEventType.SYSTEM,
+                    f"Auto-exported tracking CSV on close: {path}",
+                )
+            except Exception as error:
+                self.state.last_error = str(error)
+                self._emit(
+                    BridgeEventType.ERROR,
+                    f"Auto-export failed for registry {registry}: {error}",
+                )
+
+        if exported_paths:
+            self._status_changed()
+
+        return exported_paths
 
     @staticmethod
     def _parse_program_response(response: str) -> str:
