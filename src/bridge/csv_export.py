@@ -18,6 +18,7 @@ class CsvHeightSample:
     layer_index: int = 0
     layer_sample_index: int | None = None
     collected_at: datetime | None = None
+    collected_at_ns: int | None = None
     start_x: float | None = None
     start_y: float | None = None
     scan_length: float | None = None
@@ -51,6 +52,7 @@ def export_height_samples(
                 "layer_index",
                 "layer_sample_index",
                 "collected_at",
+                "collected_at_ns",
                 "value_mm",
                 "valid",
                 "seconds_ago",
@@ -64,6 +66,13 @@ def export_height_samples(
         )
 
         for index, sample in enumerate(sample_list, start=1):
+            collected_at = sample.collected_at
+
+            if collected_at is None and sample.collected_at_ns is not None:
+                collected_at = datetime.fromtimestamp(
+                    sample.collected_at_ns / 1_000_000_000
+                )
+
             writer.writerow(
                 [
                     index,
@@ -72,9 +81,10 @@ def export_height_samples(
                     "" if sample.layer_sample_index is None else sample.layer_sample_index,
                     (
                         ""
-                        if sample.collected_at is None
-                        else sample.collected_at.isoformat(timespec="milliseconds")
+                        if collected_at is None
+                        else collected_at.isoformat(timespec="microseconds")
                     ),
+                    "" if sample.collected_at_ns is None else sample.collected_at_ns,
                     f"{sample.value_mm:.5f}",
                     int(sample.valid),
                     "" if sample.seconds_ago is None else f"{sample.seconds_ago:.3f}",

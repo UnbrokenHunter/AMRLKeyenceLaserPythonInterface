@@ -46,12 +46,14 @@ class KeyenceInputClient(InputClient):
         self.out_no = out_no
         self._ser: serial.Serial | None = None
         self.streaming = False
+        self._stream_buffer = bytearray()
 
     def open(self) -> None:
         self._ser = serial.Serial(**self.settings.serial_kwargs())
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
+        self._stream_buffer.clear()
 
         # Try to stop any old automatic transmission left from a previous crash/run.
         self.emergency_stop_streaming()
@@ -74,6 +76,7 @@ class KeyenceInputClient(InputClient):
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
+        self._stream_buffer.clear()
 
         self._ser.write((command + CR).encode("ascii"))
 
@@ -162,6 +165,7 @@ class KeyenceInputClient(InputClient):
         time.sleep(0.1)
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
+        self._stream_buffer.clear()
 
     def emergency_stop_streaming(self) -> None:
         """
@@ -180,6 +184,7 @@ class KeyenceInputClient(InputClient):
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
+        self._stream_buffer.clear()
         self.streaming = False
 
     def read_stream_line(self) -> InputReading:
@@ -238,6 +243,45 @@ class KeyenceInputClient(InputClient):
             latest = parse_stream_response(line)
 
         return latest
+
+    def read_available_stream_readings(self, max_readings: int = 500) -> list[InputReading]:
+        """
+        Drain complete automatic-transmission lines that are already buffered.
+
+        This is intentionally non-blocking: if no bytes are waiting, it returns
+        an empty list so a background collector can sleep briefly instead of
+        stalling the UI or command path.
+        """
+        if self._ser is None:
+            raise RuntimeError("Serial port is not open")
+
+        if not self.streaming:
+            raise RuntimeError("Keyence automatic transmission is not active")
+
+        waiting = self._ser.in_waiting
+
+        if waiting <= 0 and b"\r" not in self._stream_buffer:
+            return []
+
+        if waiting > 0:
+            self._stream_buffer.extend(self._ser.read(waiting))
+
+        readings: list[InputReading] = []
+
+        while b"\r" in self._stream_buffer and len(readings) < max_readings:
+            line_bytes, _, remainder = self._stream_buffer.partition(b"\r")
+            self._stream_buffer = bytearray(remainder)
+            line = line_bytes.decode("ascii", errors="replace").strip()
+
+            if not line:
+                continue
+
+            if line == "NT":
+                continue
+
+            readings.append(parse_stream_response(line))
+
+        return readings
 
     @staticmethod
     def _out_mask(out_no: int) -> str:

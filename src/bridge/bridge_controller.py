@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
+from threading import Event, RLock, Thread, current_thread
+import time
 
 from src.bridge.csv_export import CsvHeightSample, export_height_samples
 from src.bridge.bridge_events import BridgeEvent, BridgeEventType
@@ -36,7 +38,7 @@ from src.bridge.spc_commands import (
 )
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.bridge.height_tracking import HeightTrackerManager
-from src.input.input_client import InputClient
+from src.input.input_client import InputClient, InputReading
 from src.input.keyence_input_client import KeyenceInputClient
 from src.input.simulated_input_client import SimulatedInputClient
 from src.output.spc_software_client import SpcSoftwareClient
@@ -60,7 +62,7 @@ class BridgeConfig:
     spc_terminator: bytes = b"\r\n"
     average_samples: int = 5
     keyence_out_no: int = 1
-    keyence_poll_interval_ms: int = 20
+    keyence_poll_interval_ms: int = 5
 
     simulated_base_height_mm: float = 12.000
     simulated_noise_std_mm: float = 0.002
@@ -99,6 +101,11 @@ class BridgeController:
         )
 
         self._events: Queue[BridgeEvent] = Queue()
+        self._state_lock = RLock()
+        self._stream_stop_event = Event()
+        self._stream_thread: Thread | None = None
+        self._last_stream_ui_event_at = 0.0
+        self._last_stream_status_event_at = 0.0
 
     # -------------------------------------------------------------------------
     # Public API used by UI
@@ -216,6 +223,7 @@ class BridgeController:
             else:
                 raise RuntimeError("Input client does not support streaming")
 
+            self._start_stream_reader()
             self._emit(BridgeEventType.SYSTEM, "Keyence stream started")
             self._status_changed()
 
@@ -235,6 +243,7 @@ class BridgeController:
 
         try:
             self.state.streaming = False
+            self._stop_stream_reader()
 
             if self.state.keyence.connected:
                 self.state.keyence.state = "Connected"
@@ -262,26 +271,10 @@ class BridgeController:
             return
 
         try:
-            if hasattr(self.input_client, "read_latest_stream_reading"):
-                reading = self.input_client.read_latest_stream_reading()  # type: ignore[attr-defined]
-            elif hasattr(self.input_client, "read_stream_line"):
-                reading = self.input_client.read_stream_line()  # type: ignore[attr-defined]
-            else:
-                raise RuntimeError("Input client does not support streaming")
+            readings = self._read_available_stream_readings(max_readings=500)
 
-            self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
-
-            if reading.ok:
-                self.state.keyence.height_mm = reading.value_mm
-                self._record_height_sample(reading.value_mm)
-                self.state.keyence.state = f"Streaming OK ({reading.judgment})"
-            else:
-                self.state.keyence.state = (
-                    f"Streaming invalid: info={reading.result_info}, "
-                    f"judgment={reading.judgment}"
-                )
-
-            self._status_changed()
+            for reading in readings:
+                self._handle_stream_reading(reading, force_ui_event=True)
 
         except Exception as error:
             self.state.keyence.state = "Stream read failed"
@@ -346,8 +339,8 @@ class BridgeController:
             if not 1 <= keyence_out_no <= 8:
                 raise ValueError("Keyence OUT must be 1 through 8")
 
-            if not 5 <= keyence_poll_interval_ms <= 1000:
-                raise ValueError("Keyence poll interval must be 5 through 1000 ms")
+            if not 1 <= keyence_poll_interval_ms <= 1000:
+                raise ValueError("Keyence poll interval must be 1 through 1000 ms")
 
             if spc_baudrate <= 0:
                 raise ValueError("SPC baud rate must be positive")
@@ -397,8 +390,8 @@ class BridgeController:
         try:
             poll_interval_ms = int(str(poll_interval_ms).strip())
 
-            if not 5 <= poll_interval_ms <= 1000:
-                raise ValueError("Keyence poll interval must be 5 through 1000 ms")
+            if not 1 <= poll_interval_ms <= 1000:
+                raise ValueError("Keyence poll interval must be 1 through 1000 ms")
 
         except Exception as error:
             self.state.last_error = str(error)
@@ -602,6 +595,9 @@ class BridgeController:
             return
 
         try:
+            self.state.streaming = False
+            self._stop_stream_reader()
+
             if hasattr(self.input_client, "stop_streaming"):
                 self._emit(BridgeEventType.KEYENCE_SENT, "NT")
                 self.input_client.stop_streaming()  # type: ignore[attr-defined]
@@ -626,6 +622,121 @@ class BridgeController:
                 self.state.spc.state = "SPC not connected"
 
             self._status_changed()
+
+    def _start_stream_reader(self) -> None:
+        if self._stream_thread is not None and self._stream_thread.is_alive():
+            return
+
+        self._stream_stop_event.clear()
+        self._last_stream_ui_event_at = 0.0
+        self._last_stream_status_event_at = 0.0
+        self._stream_thread = Thread(
+            target=self._stream_reader_loop,
+            name="keyence-stream-reader",
+            daemon=True,
+        )
+        self._stream_thread.start()
+
+    def _stop_stream_reader(self) -> None:
+        self._stream_stop_event.set()
+
+        if self._stream_thread is None:
+            return
+
+        if self._stream_thread is not current_thread():
+            self._stream_thread.join(timeout=1.0)
+
+        self._stream_thread = None
+
+    def _stream_reader_loop(self) -> None:
+        while not self._stream_stop_event.is_set():
+            if not self.state.streaming:
+                return
+
+            try:
+                readings = self._read_available_stream_readings(max_readings=1000)
+
+                if not readings:
+                    time.sleep(self._stream_idle_sleep_seconds())
+                    continue
+
+                for reading in readings:
+                    if self._stream_stop_event.is_set() or not self.state.streaming:
+                        return
+
+                    self._handle_stream_reading(reading)
+
+            except TimeoutError:
+                time.sleep(self._stream_idle_sleep_seconds())
+
+            except Exception as error:
+                with self._state_lock:
+                    self.state.keyence.state = "Stream read failed"
+                    self.state.last_error = str(error)
+                    self.state.streaming = False
+
+                self._events.put(
+                    BridgeEvent(BridgeEventType.ERROR, f"Stream read failed: {error}")
+                )
+                self._status_changed()
+                return
+
+    def _read_available_stream_readings(self, max_readings: int) -> list[InputReading]:
+        if hasattr(self.input_client, "read_available_stream_readings"):
+            return self.input_client.read_available_stream_readings(  # type: ignore[attr-defined]
+                max_readings=max_readings
+            )
+
+        if hasattr(self.input_client, "read_latest_stream_reading"):
+            return [self.input_client.read_latest_stream_reading()]  # type: ignore[attr-defined]
+
+        if hasattr(self.input_client, "read_stream_line"):
+            return [self.input_client.read_stream_line()]  # type: ignore[attr-defined]
+
+        raise RuntimeError("Input client does not support streaming")
+
+    def _handle_stream_reading(
+        self,
+        reading: InputReading,
+        *,
+        force_ui_event: bool = False,
+    ) -> None:
+        with self._state_lock:
+            self.state.keyence_rx_count += 1
+
+            if reading.ok:
+                self.state.keyence.height_mm = reading.value_mm
+                self._record_height_sample(reading.value_mm)
+                self.state.keyence.state = f"Streaming OK ({reading.judgment})"
+            else:
+                self.state.keyence.state = (
+                    f"Streaming invalid: info={reading.result_info}, "
+                    f"judgment={reading.judgment}"
+                )
+
+        self._queue_stream_ui_event(reading.raw, force=force_ui_event)
+        self._queue_stream_status_changed(force=force_ui_event)
+
+    def _queue_stream_ui_event(self, message: str, *, force: bool = False) -> None:
+        now = time.monotonic()
+
+        if not force and now - self._last_stream_ui_event_at < 0.05:
+            return
+
+        self._last_stream_ui_event_at = now
+        self._events.put(BridgeEvent(BridgeEventType.KEYENCE_RECEIVED, message))
+
+    def _queue_stream_status_changed(self, *, force: bool = False) -> None:
+        now = time.monotonic()
+
+        if not force and now - self._last_stream_status_event_at < 0.05:
+            return
+
+        self._last_stream_status_event_at = now
+        self._status_changed()
+
+    def _stream_idle_sleep_seconds(self) -> float:
+        return max(0.001, self.config.keyence_poll_interval_ms / 1000)
 
     def _emit(self, event_type: BridgeEventType, message: str) -> None:
         if event_type == BridgeEventType.SPC_RECEIVED:
@@ -941,6 +1052,7 @@ class BridgeController:
                 layer_index=sample.layer_index,
                 layer_sample_index=sample.layer_sample_index,
                 collected_at=sample.collected_at,
+                collected_at_ns=sample.collected_at_ns,
                 start_x=metadata.start_x,
                 start_y=metadata.start_y,
                 scan_length=metadata.scan_length,

@@ -44,6 +44,7 @@ class SimulatedInputClient(InputClient):
         self.streaming = False
         self.current_program = 0
         self._start_time = time.monotonic()
+        self._last_stream_sample_at = 0.0
 
     def open(self) -> None:
         pass
@@ -122,6 +123,18 @@ class SimulatedInputClient(InputClient):
 
         line = self._make_stream_response()
         return parse_stream_response(line)
+
+    def read_available_stream_readings(self, max_readings: int = 500) -> list[InputReading]:
+        if not self.streaming:
+            raise RuntimeError("Simulator automatic transmission is not active")
+
+        now = time.monotonic()
+
+        if now - self._last_stream_sample_at < 0.001:
+            return []
+
+        self._last_stream_sample_at = now
+        return [self.read_stream_line()]
 
     def stream_command(self) -> str:
         return f"NS,3,{self._out_mask(self.out_no)}"

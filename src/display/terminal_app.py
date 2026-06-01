@@ -62,7 +62,6 @@ class BridgeTuiApp(App):
         )
         self._last_height_tracker_refresh_at = 0.0
         self._last_keyence_stream_log_at = 0.0
-        self._last_keyence_poll_at = 0.0
         self._last_spc_poll_at = 0.0
 
     def compose(self) -> ComposeResult:
@@ -355,14 +354,6 @@ class BridgeTuiApp(App):
     def _tick(self) -> None:
         now = time.monotonic()
 
-        if self._poll_due(
-            now,
-            self._last_keyence_poll_at,
-            self.controller.state.keyence_poll_interval_ms / 1000,
-        ):
-            self._last_keyence_poll_at = now
-            self.controller.poll_stream_once()
-
         if self._poll_due(now, self._last_spc_poll_at, 0.1):
             self._last_spc_poll_at = now
             self.controller.poll_spc_once()
@@ -541,7 +532,6 @@ class BridgeTuiApp(App):
             and message.setting == "keyence_poll_interval_ms"
         ):
             self.controller.set_keyence_poll_interval_ms(message.value)
-            self._last_keyence_poll_at = 0.0
             self._drain_controller_events()
             return
 

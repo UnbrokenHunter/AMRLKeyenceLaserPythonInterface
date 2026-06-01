@@ -16,8 +16,8 @@ class StatusColumn(Vertical):
             default_port="COM5",
             show_height=True,
             settings=[
-                ("keyence_out_no", "OUT", "2"),
-                ("keyence_poll_interval_ms", "Poll ms", "20"),
+                ("keyence_out_no", "OUT", "1"),
+                ("keyence_poll_interval_ms", "Poll ms", "5"),
             ],
             id="keyence-status",
         )

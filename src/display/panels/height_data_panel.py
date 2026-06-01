@@ -26,6 +26,7 @@ class GraphSample:
     value_mm: float
     valid: bool
     timestamp: float | None = None
+    timestamp_ns: int | None = None
     layer_index: int = 0
     layer_sample_index: int | None = None
 
@@ -411,6 +412,7 @@ class HeightDataPanel(Horizontal):
                 value_mm=reading.value_mm,
                 valid=reading.ok,
                 timestamp=time.monotonic(),
+                timestamp_ns=time.time_ns(),
                 layer_index=0,
             )
         )
@@ -423,7 +425,12 @@ class HeightDataPanel(Horizontal):
             return
 
         self.live_samples.append(
-            GraphSample(value_mm=height_mm, valid=True, timestamp=time.monotonic())
+            GraphSample(
+                value_mm=height_mm,
+                valid=True,
+                timestamp=time.monotonic(),
+                timestamp_ns=time.time_ns(),
+            )
         )
 
         if self.selected_source_key == "LIVE":
@@ -589,6 +596,7 @@ class HeightDataPanel(Horizontal):
                 ),
                 layer_index=sample.layer_index,
                 layer_sample_index=sample.layer_sample_index,
+                collected_at_ns=sample.timestamp_ns,
             )
             for sample in self._selected_samples()
         ]
