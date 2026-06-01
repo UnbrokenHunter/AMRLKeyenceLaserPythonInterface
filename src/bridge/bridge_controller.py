@@ -60,6 +60,7 @@ class BridgeConfig:
     spc_terminator: bytes = b"\r\n"
     average_samples: int = 5
     keyence_out_no: int = 1
+    keyence_poll_interval_ms: int = 20
 
     simulated_base_height_mm: float = 12.000
     simulated_noise_std_mm: float = 0.002
@@ -91,6 +92,7 @@ class BridgeController:
             ),
             use_simulator=config.use_simulator,
             keyence_out_no=config.keyence_out_no,
+            keyence_poll_interval_ms=config.keyence_poll_interval_ms,
             spc_baudrate=config.spc_baudrate,
             spc_line_ending=terminator_to_label(config.spc_terminator),
             log_keep_count=config.log_keep_count,
@@ -319,6 +321,7 @@ class BridgeController:
             keyence_port=keyence_port,
             spc_port=spc_port,
             keyence_out_no=self.config.keyence_out_no,
+            keyence_poll_interval_ms=self.config.keyence_poll_interval_ms,
             spc_baudrate=self.config.spc_baudrate,
             spc_line_ending=terminator_to_label(self.config.spc_terminator),
         )
@@ -329,6 +332,7 @@ class BridgeController:
         keyence_port: str,
         spc_port: str,
         keyence_out_no: int | str,
+        keyence_poll_interval_ms: int | str,
         spc_baudrate: int | str,
         spc_line_ending: str,
     ) -> None:
@@ -336,10 +340,14 @@ class BridgeController:
 
         try:
             keyence_out_no = int(str(keyence_out_no).strip())
+            keyence_poll_interval_ms = int(str(keyence_poll_interval_ms).strip())
             spc_baudrate = int(str(spc_baudrate).strip())
 
             if not 1 <= keyence_out_no <= 8:
                 raise ValueError("Keyence OUT must be 1 through 8")
+
+            if not 5 <= keyence_poll_interval_ms <= 1000:
+                raise ValueError("Keyence poll interval must be 5 through 1000 ms")
 
             if spc_baudrate <= 0:
                 raise ValueError("SPC baud rate must be positive")
@@ -361,12 +369,14 @@ class BridgeController:
         self.config.keyence_port = keyence_port
         self.config.spc_port = spc_port
         self.config.keyence_out_no = keyence_out_no
+        self.config.keyence_poll_interval_ms = keyence_poll_interval_ms
         self.config.spc_baudrate = spc_baudrate
         self.config.spc_terminator = spc_terminator
 
         self.state.keyence.port = keyence_port
         self.state.spc.port = spc_port
         self.state.keyence_out_no = keyence_out_no
+        self.state.keyence_poll_interval_ms = keyence_poll_interval_ms
         self.state.spc_baudrate = spc_baudrate
         self.state.spc_line_ending = terminator_to_label(spc_terminator)
 
@@ -381,6 +391,23 @@ class BridgeController:
         self.state.spc.connected = False
         self.state.spc.state = "SPC not connected"
 
+        self._status_changed()
+
+    def set_keyence_poll_interval_ms(self, poll_interval_ms: int | str) -> None:
+        try:
+            poll_interval_ms = int(str(poll_interval_ms).strip())
+
+            if not 5 <= poll_interval_ms <= 1000:
+                raise ValueError("Keyence poll interval must be 5 through 1000 ms")
+
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"Poll setting change failed: {error}")
+            self._status_changed()
+            return
+
+        self.config.keyence_poll_interval_ms = poll_interval_ms
+        self.state.keyence_poll_interval_ms = poll_interval_ms
         self._status_changed()
 
     def set_simulator(self, enabled: bool) -> None:

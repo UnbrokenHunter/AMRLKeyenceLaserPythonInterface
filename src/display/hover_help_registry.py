@@ -49,6 +49,8 @@ HELP_ITEMS = {
     "#keyence-port": "Serial port for the Keyence controller or USB-RS232 adapter. Press Enter to apply.",
     "#keyence-keyence_out_no-label": "Keyence output channel setting.",
     "#keyence-keyence_out_no": "Keyence OUT channel used by read commands. Press Enter to apply.",
+    "#keyence-keyence_poll_interval_ms-label": "Keyence stream polling interval setting.",
+    "#keyence-keyence_poll_interval_ms": "How often the app checks for a Keyence stream reading, in milliseconds. Press Enter to apply.",
     "#spc-status": "SPC virtual serial peer status and settings. Python opens this side of the virtual COM pair.",
     "#spc-title": "SPC virtual serial peer status panel.",
     "#spc-connected": "Whether the bridge currently has the SPC virtual serial port open.",

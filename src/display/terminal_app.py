@@ -62,6 +62,8 @@ class BridgeTuiApp(App):
         )
         self._last_height_tracker_refresh_at = 0.0
         self._last_keyence_stream_log_at = 0.0
+        self._last_keyence_poll_at = 0.0
+        self._last_spc_poll_at = 0.0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -91,7 +93,7 @@ class BridgeTuiApp(App):
         self._drain_controller_events()
         install_hover_help(self)
 
-        self.set_interval(0.1, self._tick)
+        self.set_interval(0.02, self._tick)
 
     def on_unmount(self) -> None:
         self.program_logger.close()
@@ -351,9 +353,25 @@ class BridgeTuiApp(App):
         self._drain_controller_events()
 
     def _tick(self) -> None:
-        self.controller.poll_stream_once()
-        self.controller.poll_spc_once()
+        now = time.monotonic()
+
+        if self._poll_due(
+            now,
+            self._last_keyence_poll_at,
+            self.controller.state.keyence_poll_interval_ms / 1000,
+        ):
+            self._last_keyence_poll_at = now
+            self.controller.poll_stream_once()
+
+        if self._poll_due(now, self._last_spc_poll_at, 0.1):
+            self._last_spc_poll_at = now
+            self.controller.poll_spc_once()
+
         self._drain_controller_events()
+
+    @staticmethod
+    def _poll_due(now: float, last_poll_at: float, interval_seconds: float) -> bool:
+        return now - last_poll_at >= interval_seconds
 
     def _apply_ports_from_ui(self) -> None:
         status_column = self.query_one("#status-column", StatusColumn)
@@ -361,6 +379,7 @@ class BridgeTuiApp(App):
             keyence_port=status_column.get_keyence_port(),
             spc_port=status_column.get_spc_port(),
             keyence_out_no=status_column.get_keyence_out_no(),
+            keyence_poll_interval_ms=status_column.get_keyence_poll_interval_ms(),
             spc_baudrate=status_column.get_spc_baudrate(),
             spc_line_ending=status_column.get_spc_line_ending(),
         )
@@ -517,5 +536,14 @@ class BridgeTuiApp(App):
         self,
         message: DeviceStatusPanel.SettingChanged,
     ) -> None:
+        if (
+            message.port_id == "keyence"
+            and message.setting == "keyence_poll_interval_ms"
+        ):
+            self.controller.set_keyence_poll_interval_ms(message.value)
+            self._last_keyence_poll_at = 0.0
+            self._drain_controller_events()
+            return
+
         self._apply_ports_from_ui()
         self._drain_controller_events()

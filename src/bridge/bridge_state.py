@@ -33,6 +33,7 @@ class BridgeViewState:
     streaming: bool = False
 
     keyence_out_no: int = 1
+    keyence_poll_interval_ms: int = 20
     spc_baudrate: int = 9600
     spc_line_ending: str = "CRLF"
     log_keep_count: int = 25

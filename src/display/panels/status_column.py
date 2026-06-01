@@ -17,6 +17,7 @@ class StatusColumn(Vertical):
             show_height=True,
             settings=[
                 ("keyence_out_no", "OUT", "2"),
+                ("keyence_poll_interval_ms", "Poll ms", "20"),
             ],
             id="keyence-status",
         )
@@ -40,6 +41,7 @@ class StatusColumn(Vertical):
             state.keyence,
             settings={
                 "keyence_out_no": str(state.keyence_out_no),
+                "keyence_poll_interval_ms": str(state.keyence_poll_interval_ms),
             },
         )
         self.query_one("#spc-status", DeviceStatusPanel).set_status(
@@ -60,6 +62,11 @@ class StatusColumn(Vertical):
     def get_keyence_out_no(self) -> str:
         return self.query_one("#keyence-status", DeviceStatusPanel).get_setting(
             "keyence_out_no"
+        )
+
+    def get_keyence_poll_interval_ms(self) -> str:
+        return self.query_one("#keyence-status", DeviceStatusPanel).get_setting(
+            "keyence_poll_interval_ms"
         )
 
     def get_spc_baudrate(self) -> str:
