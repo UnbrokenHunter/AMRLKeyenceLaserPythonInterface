@@ -565,6 +565,26 @@ class BridgeController:
         self._status_changed()
         return registry
 
+    def set_tracking_metadata_for_spc(
+        self,
+        registry: str,
+        metadata: dict[str, float],
+    ) -> str:
+        try:
+            registry = self.height_trackers.ensure(registry)
+            self.height_trackers.set_metadata(registry, **metadata)
+            self._emit(
+                BridgeEventType.SYSTEM,
+                f"Tracking metadata updated: {registry}",
+            )
+            self._status_changed()
+            return SPC_SUCCESS_STATUS
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"SPC SET_SCAN_METADATA failed: {error}")
+            self._status_changed()
+            return SPC_FAILURE_STATUS
+
     def drain_events(self) -> list[BridgeEvent]:
         events: list[BridgeEvent] = []
 
@@ -913,12 +933,20 @@ class BridgeController:
             return SPC_FAILURE_STATUS
 
     def export_tracking_csv(self, registry: str) -> Path:
+        metadata = self.height_trackers.metadata(registry)
         samples = [
             CsvHeightSample(
                 value_mm=sample.value_mm,
                 valid=True,
                 layer_index=sample.layer_index,
                 layer_sample_index=sample.layer_sample_index,
+                collected_at=sample.collected_at,
+                start_x=metadata.start_x,
+                start_y=metadata.start_y,
+                scan_length=metadata.scan_length,
+                scan_width=metadata.scan_width,
+                delta_y=metadata.delta_y,
+                scan_speed=metadata.scan_speed,
             )
             for sample in self.height_trackers.samples(registry)
         ]

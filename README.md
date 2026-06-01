@@ -364,6 +364,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `PAUSE_TRACKING <registry>` | | Temporarily stop appending heights without ending the tracking session. | `1` on success, `0` on failure |
 | `RESUME_TRACKING <registry>` | | Resume appending heights to a paused tracking registry. | `1` on success, `0` on failure |
 | `CLEAR_TRACKING <registry>` | | Stop tracking a named registry, then clear its samples. | `1` on success, `0` on failure |
+| `SET_SCAN_METADATA <registry> X=... Y=... WIDTH=... LENGTH=... DELTAY=... SCANSPEED=...` | `SET_SCAN_INFO`, `SCAN_METADATA` | Store optional scan metadata for CSV export. | `1` on success, `0` on failure |
 | `NEXT_LAYER <registry>` | `NEXT_SCAN_LAYER` | Advance a tracking registry to a new scan layer. | `1` on success, `0` on failure |
 | `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Stop tracking/scanning, clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
 | `SAVE <registry>` | `SAVE_TRACKING`, `SAVE_SCAN` | Stop tracking a registry, stop Keyence scanning/streaming, and export the registry to CSV. | `1` on success, `0` on failure |
@@ -415,6 +416,14 @@ RETURN_TRACKING 2
 ```
 
 Active trackers collect valid Keyence height samples whenever the bridge records a valid height. This can happen from reads or stream updates.
+
+Optional scan metadata can be attached to a registry before or during a scan:
+
+```text
+SET_SCAN_METADATA 1 X=0 Y=0 WIDTH=10 LENGTH=20 DELTAY=0.1 SCANSPEED=5
+```
+
+Supported fields are `X`, `Y`, `WIDTH`, `LENGTH`, `HEIGHT`, `DELTAY`, and `SCANSPEED`. These are optional and are written once per exported row in the CSV. Each collected height sample also receives its own timestamp in the CSV.
 
 Use pause/resume tracking to ignore transition motion while Keyence streaming continues:
 

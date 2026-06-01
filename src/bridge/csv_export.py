@@ -17,6 +17,13 @@ class CsvHeightSample:
     seconds_ago: float | None = None
     layer_index: int = 0
     layer_sample_index: int | None = None
+    collected_at: datetime | None = None
+    start_x: float | None = None
+    start_y: float | None = None
+    scan_length: float | None = None
+    scan_width: float | None = None
+    delta_y: float | None = None
+    scan_speed: float | None = None
 
 
 def export_height_samples(
@@ -43,9 +50,16 @@ def export_height_samples(
                 "source",
                 "layer_index",
                 "layer_sample_index",
+                "collected_at",
                 "value_mm",
                 "valid",
                 "seconds_ago",
+                "start_x",
+                "start_y",
+                "scan_length",
+                "scan_width",
+                "delta_y",
+                "scan_speed",
             ]
         )
 
@@ -56,9 +70,20 @@ def export_height_samples(
                     source_name,
                     sample.layer_index,
                     "" if sample.layer_sample_index is None else sample.layer_sample_index,
+                    (
+                        ""
+                        if sample.collected_at is None
+                        else sample.collected_at.isoformat(timespec="milliseconds")
+                    ),
                     f"{sample.value_mm:.5f}",
                     int(sample.valid),
                     "" if sample.seconds_ago is None else f"{sample.seconds_ago:.3f}",
+                    _format_optional_float(sample.start_x),
+                    _format_optional_float(sample.start_y),
+                    _format_optional_float(sample.scan_length),
+                    _format_optional_float(sample.scan_width),
+                    _format_optional_float(sample.delta_y),
+                    _format_optional_float(sample.scan_speed),
                 ]
             )
 
@@ -73,3 +98,7 @@ def _export_filename(source_name: str) -> str:
         safe_source = "height"
 
     return f"{safe_source}-{timestamp}.csv"
+
+
+def _format_optional_float(value: float | None) -> str:
+    return "" if value is None else f"{value:.6g}"

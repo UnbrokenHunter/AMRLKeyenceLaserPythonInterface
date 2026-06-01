@@ -212,6 +212,18 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 handler=_handle_clear_tracking,
             ),
             SpcCommand(
+                name="SET_SCAN_METADATA",
+                aliases=("SET_SCAN_INFO", "SCAN_METADATA"),
+                description=(
+                    "Store optional scan metadata for a tracking registry. "
+                    "Use named fields such as X=0 Y=0 WIDTH=10 LENGTH=20 "
+                    "DELTAY=0.1 SCANSPEED=5."
+                ),
+                reply_description="1 on success, 0 on failure.",
+                failure_reply=SPC_FAILURE_STATUS,
+                handler=_handle_set_scan_metadata,
+            ),
+            SpcCommand(
                 name="NEXT_LAYER",
                 aliases=("NEXT_SCAN_LAYER",),
                 description="Advance a tracking registry to a new scan layer.",
@@ -322,6 +334,9 @@ _SPC_SPACED_COMMANDS = {
     "PAUSE_TRACKING",
     "RESUME_TRACKING",
     "CLEAR_TRACKING",
+    "SET_SCAN_METADATA",
+    "SET_SCAN_INFO",
+    "SCAN_METADATA",
     "NEXT_LAYER",
     "NEXT_SCAN_LAYER",
     "PREPARE_TRACKING",
@@ -458,6 +473,15 @@ def _handle_clear_tracking(
     return SPC_SUCCESS_STATUS
 
 
+def _handle_set_scan_metadata(
+    context: SpcCommandContext,
+    parsed: ParsedSpcMessage,
+) -> str:
+    registry = _tracking_registry_arg(parsed)
+    metadata = _metadata_args(parsed)
+    return context.controller.set_tracking_metadata_for_spc(registry, metadata)
+
+
 def _handle_next_layer(
     context: SpcCommandContext,
     parsed: ParsedSpcMessage,
@@ -549,6 +573,60 @@ def _tracking_registry_arg(parsed: ParsedSpcMessage) -> str:
         raise ValueError("Tracking registry argument is required")
 
     return normalize_registry_name(args[0])
+
+
+def _metadata_args(parsed: ParsedSpcMessage) -> dict[str, float]:
+    args = list(parsed.args)
+
+    if args and args[0].upper() == "ON":
+        args.pop(0)
+
+    if args:
+        args.pop(0)
+
+    metadata: dict[str, float] = {}
+
+    for raw_arg in args:
+        if "=" not in raw_arg:
+            raise ValueError(f"Metadata argument must use NAME=VALUE: {raw_arg}")
+
+        raw_key, raw_value = raw_arg.split("=", 1)
+        key = _metadata_key(raw_key)
+        metadata[key] = float(raw_value)
+
+    if not metadata:
+        raise ValueError("At least one metadata field is required")
+
+    return metadata
+
+
+def _metadata_key(raw_key: str) -> str:
+    key = raw_key.strip().upper().replace("-", "_")
+    aliases = {
+        "X": "start_x",
+        "START_X": "start_x",
+        "Y": "start_y",
+        "START_Y": "start_y",
+        "L": "scan_length",
+        "LENGTH": "scan_length",
+        "SCAN_LENGTH": "scan_length",
+        "H": "scan_length",
+        "HEIGHT": "scan_length",
+        "W": "scan_width",
+        "WIDTH": "scan_width",
+        "SCAN_WIDTH": "scan_width",
+        "DY": "delta_y",
+        "DELTA_Y": "delta_y",
+        "DELTAY": "delta_y",
+        "SPEED": "scan_speed",
+        "SCAN_SPEED": "scan_speed",
+        "SCANSPEED": "scan_speed",
+    }
+
+    try:
+        return aliases[key]
+    except KeyError as error:
+        raise ValueError(f"Unknown metadata field: {raw_key}") from error
 
 
 def _format_height_value(value: float) -> str:

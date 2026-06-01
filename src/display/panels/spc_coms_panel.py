@@ -159,6 +159,21 @@ class SpcComsPanel(CommonComsPanel):
                     regex=True,
                 ),
                 CommandComment(
+                    spc_command_pattern("SET_SCAN_METADATA"),
+                    "Store optional scan metadata for a tracking registry",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SET_SCAN_INFO"),
+                    "Alias for SET_SCAN_METADATA",
+                    regex=True,
+                ),
+                CommandComment(
+                    spc_command_pattern("SCAN_METADATA"),
+                    "Alias for SET_SCAN_METADATA",
+                    regex=True,
+                ),
+                CommandComment(
                     spc_command_pattern("NEXT_LAYER"),
                     "Advance a tracking registry to a new scan layer",
                     regex=True,

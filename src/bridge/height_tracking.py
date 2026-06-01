@@ -7,6 +7,17 @@ samples or summary values from each registry.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+
+@dataclass(frozen=True)
+class ScanMetadata:
+    start_x: float | None = None
+    start_y: float | None = None
+    scan_length: float | None = None
+    scan_width: float | None = None
+    delta_y: float | None = None
+    scan_speed: float | None = None
 
 
 @dataclass(frozen=True)
@@ -14,6 +25,7 @@ class TrackedHeightSample:
     value_mm: float
     layer_index: int
     layer_sample_index: int
+    collected_at: datetime
 
 
 @dataclass
@@ -26,6 +38,7 @@ class HeightTrack:
     sum_value: float = 0.0
     min_value: float | None = None
     max_value: float | None = None
+    metadata: ScanMetadata = field(default_factory=ScanMetadata)
 
 
 class HeightTrackerManager:
@@ -83,6 +96,8 @@ class HeightTrackerManager:
         return track.current_layer_index
 
     def add_sample(self, value_mm: float) -> None:
+        collected_at = datetime.now()
+
         for track in self._tracks.values():
             if track.active and not track.paused:
                 layer_samples = track.layers.setdefault(track.current_layer_index, [])
@@ -90,10 +105,37 @@ class HeightTrackerManager:
                     value_mm=value_mm,
                     layer_index=track.current_layer_index,
                     layer_sample_index=len(layer_samples) + 1,
+                    collected_at=collected_at,
                 )
                 layer_samples.append(sample)
                 track.samples.append(sample)
                 self._record_summary(track, value_mm)
+
+    def set_metadata(
+        self,
+        registry: str,
+        *,
+        start_x: float | None = None,
+        start_y: float | None = None,
+        scan_length: float | None = None,
+        scan_width: float | None = None,
+        delta_y: float | None = None,
+        scan_speed: float | None = None,
+    ) -> ScanMetadata:
+        track = self._get_track(registry)
+        current = track.metadata
+        track.metadata = ScanMetadata(
+            start_x=current.start_x if start_x is None else start_x,
+            start_y=current.start_y if start_y is None else start_y,
+            scan_length=current.scan_length if scan_length is None else scan_length,
+            scan_width=current.scan_width if scan_width is None else scan_width,
+            delta_y=current.delta_y if delta_y is None else delta_y,
+            scan_speed=current.scan_speed if scan_speed is None else scan_speed,
+        )
+        return track.metadata
+
+    def metadata(self, registry: str) -> ScanMetadata:
+        return self._get_track(registry).metadata
 
     def values(self, registry: str) -> list[float]:
         return [sample.value_mm for sample in self.samples(registry)]
