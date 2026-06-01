@@ -35,7 +35,7 @@ HELP_ITEMS = {
     "#height-graph-panel": "Height graph and summary statistics for the selected source.",
     "#height-export-csv": "Export the selected height source to a CSV file in the project exports folder.",
     "#height-next-layer": "Advance the selected tracking registry to a new scan layer.",
-    "#height-include-invalid": "Toggle whether invalid readings are included in the graph and CSV export.",
+    "#height-include-invalid": "Toggle whether invalid readings are included in the graph and CSV export. ON=keep invalid data, OFF=remove invalid data.",
     "#height-current-value": "Most recent height value for the selected source.",
     "#height-graph-stats": "Minimum, maximum, and average of valid values in the selected source.",
     "#height-graph": "ASCII height plot. LIVE shows recent samples; trackers show the full registry history compressed to fit.",

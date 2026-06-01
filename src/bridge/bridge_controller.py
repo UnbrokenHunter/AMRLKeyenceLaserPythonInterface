@@ -1064,7 +1064,7 @@ class BridgeController:
         ]
 
         return export_height_samples(
-            source_name=f"register-{registry}",
+            source_name=f"register-{registry}-valid-only",
             samples=samples,
         )
 

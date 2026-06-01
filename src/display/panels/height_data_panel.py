@@ -763,10 +763,15 @@ class HeightDataPanel(Horizontal):
         return self._filter_invalid_samples(self._selected_tracker_samples(source))
 
     def _selected_export_name(self) -> str:
-        if self.selected_source_key == "LIVE":
-            return "live"
+        invalid_policy = "include-invalid" if self.include_invalid else "valid-only"
 
-        return f"register-{self.selected_source_key.removeprefix('TRACK:')}"
+        if self.selected_source_key == "LIVE":
+            return f"live-{invalid_policy}"
+
+        return (
+            f"register-{self.selected_source_key.removeprefix('TRACK:')}-"
+            f"{invalid_policy}"
+        )
 
     def _selected_registry(self) -> str | None:
         if not self.selected_source_key.startswith("TRACK:"):
