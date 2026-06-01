@@ -155,7 +155,7 @@ class SpcComsPanel(CommonComsPanel):
                 ),
                 CommandComment(
                     spc_command_pattern("CLEAR_TRACKING"),
-                    "Clear samples from a named tracking registry",
+                    "Stop and clear samples from a named tracking registry",
                     regex=True,
                 ),
                 CommandComment(
@@ -170,17 +170,17 @@ class SpcComsPanel(CommonComsPanel):
                 ),
                 CommandComment(
                     spc_command_pattern("PREPARE"),
-                    "Clear registry, start tracking, and start Keyence stream",
+                    "Stop scan/tracking, clear registry, then start tracking and stream",
                     regex=True,
                 ),
                 CommandComment(
                     spc_command_pattern("PREPARE_TRACKING"),
-                    "Clear registry, start tracking, and start Keyence stream",
+                    "Stop scan/tracking, clear registry, then start tracking and stream",
                     regex=True,
                 ),
                 CommandComment(
                     spc_command_pattern("PREPARE_SCAN"),
-                    "Clear registry, start tracking, and start Keyence stream",
+                    "Stop scan/tracking, clear registry, then start tracking and stream",
                     regex=True,
                 ),
                 CommandComment(

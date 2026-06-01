@@ -206,7 +206,7 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             ),
             SpcCommand(
                 name="CLEAR_TRACKING",
-                description="Clear all samples from a named tracking registry.",
+                description="Stop tracking a named registry, then clear all of its samples.",
                 reply_description="1 on success, 0 on failure.",
                 failure_reply=SPC_FAILURE_STATUS,
                 handler=_handle_clear_tracking,
@@ -223,8 +223,8 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 name="PREPARE",
                 aliases=("PREPARE_TRACKING", "PREPARE_SCAN"),
                 description=(
-                    "Clear a tracking registry, start tracking it, and start "
-                    "Keyence scanning/streaming."
+                    "Stop tracking/scanning, clear a tracking registry, start "
+                    "tracking it, and start Keyence scanning/streaming."
                 ),
                 reply_description="1 on success, 0 on failure.",
                 failure_reply=SPC_FAILURE_STATUS,
@@ -453,6 +453,7 @@ def _handle_clear_tracking(
     parsed: ParsedSpcMessage,
 ) -> str:
     registry = _tracking_registry_arg(parsed)
+    context.controller.height_trackers.stop(registry)
     context.controller.height_trackers.clear(registry)
     return SPC_SUCCESS_STATUS
 

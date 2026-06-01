@@ -521,6 +521,7 @@ class BridgeController:
 
     def clear_tracking_registry(self, registry: str) -> str:
         registry = self.height_trackers.ensure(registry)
+        self.height_trackers.stop(registry)
         self.height_trackers.clear(registry)
         self._emit(BridgeEventType.SYSTEM, f"Tracking registry cleared: {registry}")
         self._status_changed()
@@ -528,6 +529,7 @@ class BridgeController:
 
     def clear_tracking_registry_layer(self, registry: str, layer_index: int) -> str:
         registry = self.height_trackers.ensure(registry)
+        self.height_trackers.stop(registry)
         self.height_trackers.clear_layer(registry, layer_index)
         self._emit(
             BridgeEventType.SYSTEM,
@@ -834,6 +836,11 @@ class BridgeController:
 
     def prepare_tracking_scan_for_spc(self, registry: str) -> str:
         try:
+            self.height_trackers.stop(registry)
+
+            if self.stop_stream_for_spc() != SPC_SUCCESS_STATUS:
+                return SPC_FAILURE_STATUS
+
             self.height_trackers.clear(registry)
             self.height_trackers.start(registry)
 

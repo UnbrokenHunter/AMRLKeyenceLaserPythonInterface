@@ -363,9 +363,9 @@ The app's SPC command documentation is generated from the command registry in `s
 | `STOP_TRACKING <registry>` | | Stop appending heights to a named tracking registry. | `1` on success, `0` on failure |
 | `PAUSE_TRACKING <registry>` | | Temporarily stop appending heights without ending the tracking session. | `1` on success, `0` on failure |
 | `RESUME_TRACKING <registry>` | | Resume appending heights to a paused tracking registry. | `1` on success, `0` on failure |
-| `CLEAR_TRACKING <registry>` | | Clear samples from a named tracking registry. | `1` on success, `0` on failure |
+| `CLEAR_TRACKING <registry>` | | Stop tracking a named registry, then clear its samples. | `1` on success, `0` on failure |
 | `NEXT_LAYER <registry>` | `NEXT_SCAN_LAYER` | Advance a tracking registry to a new scan layer. | `1` on success, `0` on failure |
-| `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
+| `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Stop tracking/scanning, clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
 | `SAVE <registry>` | `SAVE_TRACKING`, `SAVE_SCAN` | Stop tracking a registry, stop Keyence scanning/streaming, and export the registry to CSV. | `1` on success, `0` on failure |
 | `SAVE_CSV <registry>` | `EXPORT_CSV`, `SAVE_TRACKING_CSV`, `EXPORT_TRACKING_CSV` | Save a named tracking registry to a CSV file in `exports`. | `1` on success, `0` on failure |
 | `RETURN_TRACKING <registry>` | | Return all samples from a named tracking registry. | `TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>` |
@@ -456,7 +456,7 @@ PREPARE 1
 SAVE 1
 ```
 
-`PREPARE 1` clears registry `1`, starts tracking registry `1`, and starts Keyence streaming. `SAVE 1` stops tracking registry `1`, stops Keyence streaming, and saves registry `1` to CSV.
+`PREPARE 1` stops any current tracking/scanning state for registry `1`, clears registry `1`, starts tracking registry `1`, and starts Keyence streaming. `SAVE 1` stops tracking registry `1`, stops Keyence streaming, and saves registry `1` to CSV.
 
 ## Error Behavior
 
