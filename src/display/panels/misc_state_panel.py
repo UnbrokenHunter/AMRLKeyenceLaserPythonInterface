@@ -21,7 +21,9 @@ class MiscStatePanel(Vertical):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.log_keep_count = "25"
+        self.export_keep_count = "25"
         self.force_log_keep_refresh = False
+        self.force_export_keep_refresh = False
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -40,6 +42,19 @@ class MiscStatePanel(Vertical):
                     classes="port-input",
                     compact=True,
                 )
+        with Horizontal(classes="port-row"):
+            yield Label(
+                "Exports",
+                id="misc-export_keep_count-label",
+                classes="field-label port-label",
+            )
+            with Horizontal(classes="port-input-shell"):
+                yield Input(
+                    value=self.export_keep_count,
+                    id="misc-export_keep_count",
+                    classes="port-input",
+                    compact=True,
+                )
 
         yield Static("", classes="status-line")
         yield Static("Error: --", id="misc-error")
@@ -51,9 +66,19 @@ class MiscStatePanel(Vertical):
             event.input.blur()
             event.stop()
 
+        if event.input.id == "misc-export_keep_count":
+            self.force_export_keep_refresh = True
+            self._commit_export_keep_count(event.input.value)
+            event.input.blur()
+            event.stop()
+
     def on_input_blurred(self, event: Input.Blurred) -> None:
         if event.input.id == "misc-log_keep_count":
             self._commit_log_keep_count(event.input.value)
+            event.stop()
+
+        if event.input.id == "misc-export_keep_count":
+            self._commit_export_keep_count(event.input.value)
             event.stop()
 
     def set_state(self, state: BridgeViewState) -> None:
@@ -66,6 +91,7 @@ class MiscStatePanel(Vertical):
                 f"SPC baud: {state.spc_baudrate}\n"
                 f"SPC line: {state.spc_line_ending}\n"
                 f"Keep logs: {state.log_keep_count}\n"
+                f"Keep exports: {state.export_keep_count}\n"
                 f"SPC RX: {state.spc_rx_count}\n"
                 f"SPC TX: {state.spc_tx_count}\n"
                 f"Keyence TX: {state.keyence_tx_count}\n"
@@ -79,6 +105,13 @@ class MiscStatePanel(Vertical):
         if self.force_log_keep_refresh or not log_keep_input.has_focus:
             log_keep_input.value = self.log_keep_count
             self.force_log_keep_refresh = False
+
+        self.export_keep_count = str(state.export_keep_count)
+        export_keep_input = self.query_one("#misc-export_keep_count", Input)
+
+        if self.force_export_keep_refresh or not export_keep_input.has_focus:
+            export_keep_input.value = self.export_keep_count
+            self.force_export_keep_refresh = False
 
         error_line = self.query_one("#misc-error", Static)
         has_error = bool(state.last_error)
@@ -94,6 +127,18 @@ class MiscStatePanel(Vertical):
 
         self.log_keep_count = value
         self.post_message(self.SettingChanged("log_keep_count", value))
+
+    def _commit_export_keep_count(self, value: str) -> None:
+        value = value.strip()
+
+        if not value:
+            self.query_one("#misc-export_keep_count", Input).value = (
+                self.export_keep_count
+            )
+            return
+
+        self.export_keep_count = value
+        self.post_message(self.SettingChanged("export_keep_count", value))
 
     @staticmethod
     def _format_error(error: str | None) -> str:

@@ -190,6 +190,10 @@ class BridgeTuiApp(App):
             )
             self._drain_controller_events()
 
+        if message.setting == "export_keep_count":
+            self.controller.set_export_keep_count(message.value)
+            self._drain_controller_events()
+
     def on_height_data_panel_export_completed(
         self,
         message: HeightDataPanel.ExportCompleted,
@@ -483,6 +487,7 @@ class BridgeTuiApp(App):
 
         height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
         height_data_panel.set_class(self.show_height_data, "visible")
+        height_data_panel.set_export_keep_count(state.export_keep_count)
 
         if self.show_height_data and self._should_refresh_height_tracker_sources():
             height_data_panel.set_tracker_sources(

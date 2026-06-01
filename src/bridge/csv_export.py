@@ -32,6 +32,7 @@ def export_height_samples(
     source_name: str,
     samples: Iterable[CsvHeightSample],
     export_dir: str | Path = "exports",
+    keep_count: int = 25,
 ) -> Path:
     sample_list = list(samples)
 
@@ -97,7 +98,32 @@ def export_height_samples(
                 ]
             )
 
+    prune_exports(export_path, keep_count=keep_count)
     return file_path
+
+
+def prune_exports(export_dir: str | Path = "exports", *, keep_count: int = 25) -> None:
+    keep_count = max(0, int(keep_count))
+
+    if keep_count == 0:
+        return
+
+    export_path = Path(export_dir)
+
+    if not export_path.exists():
+        return
+
+    exports = sorted(
+        export_path.glob("*.csv"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    for old_export in exports[keep_count:]:
+        try:
+            old_export.unlink()
+        except OSError:
+            pass
 
 
 def _export_filename(source_name: str) -> str:

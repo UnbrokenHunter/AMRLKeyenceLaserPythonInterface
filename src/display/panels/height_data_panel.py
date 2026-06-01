@@ -393,6 +393,7 @@ class HeightDataPanel(Horizontal):
         self._source_select_options: tuple[tuple[str, str], ...] = ()
         self._layer_select_options: tuple[tuple[str, str], ...] = ()
         self._defer_select_render = False
+        self.export_keep_count = 25
 
     def compose(self) -> ComposeResult:
         self.add_class("panel")
@@ -613,7 +614,14 @@ class HeightDataPanel(Horizontal):
             for sample in self._selected_samples()
         ]
 
-        return export_height_samples(source_name=source_name, samples=samples)
+        return export_height_samples(
+            source_name=source_name,
+            samples=samples,
+            keep_count=self.export_keep_count,
+        )
+
+    def set_export_keep_count(self, keep_count: int) -> None:
+        self.export_keep_count = max(0, int(keep_count))
 
     def _render_source_list(self) -> None:
         layer_label = self._selected_layer_label()

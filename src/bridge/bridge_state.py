@@ -37,6 +37,7 @@ class BridgeViewState:
     spc_baudrate: int = 9600
     spc_line_ending: str = "CRLF"
     log_keep_count: int = 25
+    export_keep_count: int = 25
 
     spc_rx_count: int = 0
     spc_tx_count: int = 0

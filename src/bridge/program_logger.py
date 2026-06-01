@@ -20,7 +20,7 @@ class ProgramLogger:
         keep_count: int = 25,
     ) -> None:
         self.log_dir = Path(log_dir)
-        self.keep_count = max(1, int(keep_count))
+        self.keep_count = max(0, int(keep_count))
         self.path: Path | None = None
         self._file: TextIO | None = None
 
@@ -34,7 +34,7 @@ class ProgramLogger:
         self.prune()
 
     def set_keep_count(self, keep_count: int) -> None:
-        self.keep_count = max(1, int(keep_count))
+        self.keep_count = max(0, int(keep_count))
         self.prune()
 
     def write(self, direction: str, source: str, message: str) -> None:
@@ -52,6 +52,9 @@ class ProgramLogger:
         self._file.write(f"{timestamp}\t{direction}\t{source}\t{clean_message}\n")
 
     def prune(self) -> None:
+        if self.keep_count == 0:
+            return
+
         if not self.log_dir.exists():
             return
 

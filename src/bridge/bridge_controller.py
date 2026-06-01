@@ -69,6 +69,7 @@ class BridgeConfig:
     simulated_drift_per_sec_mm: float = 0.0001
     simulated_invalid_probability: float = 0.0
     log_keep_count: int = 25
+    export_keep_count: int = 25
 
 
 class BridgeController:
@@ -98,6 +99,7 @@ class BridgeController:
             spc_baudrate=config.spc_baudrate,
             spc_line_ending=terminator_to_label(config.spc_terminator),
             log_keep_count=config.log_keep_count,
+            export_keep_count=config.export_keep_count,
         )
 
         self._events: Queue[BridgeEvent] = Queue()
@@ -506,8 +508,8 @@ class BridgeController:
         try:
             keep_count = int(str(keep_count).strip())
 
-            if keep_count <= 0:
-                raise ValueError("Log keep count must be positive")
+            if keep_count < 0:
+                raise ValueError("Log keep count must be zero or positive")
 
         except Exception as error:
             self.state.last_error = str(error)
@@ -517,6 +519,23 @@ class BridgeController:
 
         self.config.log_keep_count = keep_count
         self.state.log_keep_count = keep_count
+        self._status_changed()
+
+    def set_export_keep_count(self, keep_count: int | str) -> None:
+        try:
+            keep_count = int(str(keep_count).strip())
+
+            if keep_count < 0:
+                raise ValueError("Export keep count must be zero or positive")
+
+        except Exception as error:
+            self.state.last_error = str(error)
+            self._emit(BridgeEventType.ERROR, f"Export setting change failed: {error}")
+            self._status_changed()
+            return
+
+        self.config.export_keep_count = keep_count
+        self.state.export_keep_count = keep_count
         self._status_changed()
 
     def ensure_tracking_registry(self, registry: str) -> str:
@@ -1066,6 +1085,7 @@ class BridgeController:
         return export_height_samples(
             source_name=f"register-{registry}-valid-only",
             samples=samples,
+            keep_count=self.config.export_keep_count,
         )
 
     @staticmethod

@@ -202,7 +202,9 @@ Main controls:
 
 The port/settings fields in the status panels apply when you press `Enter` or when the field loses focus.
 
-The `Logs` field in Bridge State controls how many session log files are kept in the project `logs` folder. The app records raw SPC/Keyence TX/RX, system messages, and errors before UI filters such as RAW, TIME, RX, TX, or WRAP are applied.
+The `Logs` field in Bridge State controls how many session log files are kept in the project `logs` folder. Use `0` for unlimited logs. The app records raw SPC/Keyence TX/RX, system messages, and errors before UI filters such as RAW, TIME, RX, TX, or WRAP are applied.
+
+The `Exports` field controls how many CSV export files are kept in the project `exports` folder. Use `0` for unlimited exports.
 
 ## Keyboard Shortcuts
 
@@ -328,7 +330,7 @@ Displayed statistics:
 - maximum
 - average
 
-The `INV` toggle controls whether invalid readings are included in the graph and CSV export. The `EXPORT CSV` button exports the currently selected source to the project `exports` folder.
+The `INV` toggle controls whether invalid readings are included in the graph and CSV export. The `EXPORT CSV` button exports the currently selected source to the project `exports` folder. Old CSV exports are pruned according to the Bridge State `Exports` setting; `0` means unlimited.
 
 The `NEXT LAYER` button advances the selected tracking registry to a new scan layer. It does not assign any physical axis or offset.
 
