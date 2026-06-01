@@ -471,8 +471,11 @@ class CommonComsPanel(Vertical):
             self._format_log_message(entry.direction, entry.message)
         )
         prefix = f"[{entry.timestamp}] " if self.show_time else ""
+        style = "bold white on #7a2020" if self._entry_is_error(entry) else ""
 
-        self.query_one(f"#{self.log_id}", RichLog).write(Text(f"{prefix}{display}"))
+        self.query_one(f"#{self.log_id}", RichLog).write(
+            Text(f"{prefix}{display}", style=style)
+        )
 
     def _entry_visible(self, entry: ComsLogEntry) -> bool:
         if entry.direction == "TX":
@@ -482,6 +485,19 @@ class CommonComsPanel(Vertical):
             return self.show_rx
 
         return True
+
+    def _entry_is_error(self, entry: ComsLogEntry) -> bool:
+        message = entry.message.strip().upper()
+
+        if entry.direction == "SYS" and "ERROR" in message:
+            return True
+
+        return (
+            message.startswith("ERROR")
+            or message.startswith("ER,")
+            or " FAILED" in message
+            or "FAILURE" in message
+        )
 
     def _wrap_display_text(self, display: str) -> str:
         if not self.wrap_text:
