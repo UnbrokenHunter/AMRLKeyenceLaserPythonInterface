@@ -61,6 +61,7 @@ class BridgeTuiApp(App):
             keep_count=controller.config.log_keep_count,
         )
         self._last_height_tracker_refresh_at = 0.0
+        self._last_keyence_stream_log_at = 0.0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -92,6 +93,9 @@ class BridgeTuiApp(App):
 
         self.set_interval(0.1, self._tick)
 
+    def on_unmount(self) -> None:
+        self.program_logger.close()
+
     def on_mouse_move(self, event: MouseMove) -> None:
         help_text = get_hover_help(event.widget) or DEFAULT_HELP_TEXT
 
@@ -103,6 +107,7 @@ class BridgeTuiApp(App):
 
     def on_control_bar_close_requested(self, _: ControlBar.CloseRequested) -> None:
         self.controller.close()
+        self.program_logger.close()
         self.exit()
 
     def on_control_bar_connect_requested(self, _: ControlBar.ConnectRequested) -> None:
@@ -386,9 +391,7 @@ class BridgeTuiApp(App):
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
                 self.program_logger.write("RX", "KEYENCE", event.message)
-                self.query_one("#keyence-coms-panel", KeyenceComsPanel).log_received(
-                    event.message
-                )
+                self._log_keyence_received(event.message)
 
                 height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
                 height_data_panel.log_data(event.message)
@@ -413,6 +416,24 @@ class BridgeTuiApp(App):
 
         if did_receive_event:
             self._refresh_all_panels()
+
+    def _log_keyence_received(self, message: str) -> None:
+        keyence_panel = self.query_one("#keyence-coms-panel", KeyenceComsPanel)
+
+        if not self.controller.state.streaming:
+            keyence_panel.log_received(message)
+            return
+
+        if not keyence_panel.show_rx:
+            return
+
+        now = time.monotonic()
+
+        if now - self._last_keyence_stream_log_at < 0.25:
+            return
+
+        self._last_keyence_stream_log_at = now
+        keyence_panel.log_received(message)
 
     def _error_panel_for_message(self, message: str) -> CommonComsPanel:
         normalized = message.upper()

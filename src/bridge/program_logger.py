@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import TextIO
 
 
 class ProgramLogger:
@@ -21,11 +22,14 @@ class ProgramLogger:
         self.log_dir = Path(log_dir)
         self.keep_count = max(1, int(keep_count))
         self.path: Path | None = None
+        self._file: TextIO | None = None
 
     def start(self) -> None:
+        self.close()
         self.log_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         self.path = self.log_dir / f"bridge-{timestamp}.log"
+        self._file = self.path.open("a", encoding="utf-8", buffering=1)
         self.write("SYS", "LOGGER", f"Log started: {self.path}")
         self.prune()
 
@@ -42,8 +46,10 @@ class ProgramLogger:
         timestamp = datetime.now().isoformat(timespec="milliseconds")
         clean_message = message.replace("\r", "\\r").replace("\n", "\\n")
 
-        with self.path.open("a", encoding="utf-8") as log_file:
-            log_file.write(f"{timestamp}\t{direction}\t{source}\t{clean_message}\n")
+        if self._file is None or self._file.closed:
+            self._file = self.path.open("a", encoding="utf-8", buffering=1)
+
+        self._file.write(f"{timestamp}\t{direction}\t{source}\t{clean_message}\n")
 
     def prune(self) -> None:
         if not self.log_dir.exists():
@@ -60,3 +66,12 @@ class ProgramLogger:
                 old_log.unlink()
             except OSError:
                 pass
+
+    def close(self) -> None:
+        if self._file is None:
+            return
+
+        try:
+            self._file.close()
+        finally:
+            self._file = None
