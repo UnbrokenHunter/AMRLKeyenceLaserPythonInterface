@@ -461,6 +461,10 @@ class BridgeTuiApp(App):
                         self.controller.height_trackers.is_paused(registry),
                         self.controller.height_trackers.current_layer(registry),
                         self.controller.height_trackers.layers(registry),
+                        self.controller.height_trackers.count(registry),
+                        self.controller.height_trackers.minimum(registry),
+                        self.controller.height_trackers.maximum(registry),
+                        self.controller.height_trackers.average(registry),
                     )
                     for registry in self.controller.height_trackers.registries()
                 }

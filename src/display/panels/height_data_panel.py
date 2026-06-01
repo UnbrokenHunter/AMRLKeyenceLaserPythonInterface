@@ -42,6 +42,8 @@ class HeightGraphPanel(Vertical):
         self.title = "Live Height"
         self.source_kind = "LIVE"
         self.include_invalid = True
+        self.stats_override: tuple[float, float, float] | None = None
+        self.total_count: int | None = None
 
     def compose(self) -> ComposeResult:
         self.add_class("height-graph-panel")
@@ -74,10 +76,14 @@ class HeightGraphPanel(Vertical):
         samples: list[GraphSample],
         *,
         source_kind: str,
+        stats: tuple[float, float, float] | None = None,
+        total_count: int | None = None,
     ) -> None:
         self.title = title
         self.source_kind = source_kind
         self.samples = list(samples)
+        self.stats_override = stats
+        self.total_count = total_count
         self.query_one("#height-graph-title", Label).update(title)
         self._sync_invalid_toggle()
         self._render_graph()
@@ -112,7 +118,12 @@ class HeightGraphPanel(Vertical):
 
         valid_values = [sample.value_mm for sample in samples if sample.valid]
 
-        if valid_values:
+        if self.stats_override is not None:
+            min_value, max_value, avg_value = self.stats_override
+            stats_label.update(
+                f"Min: {min_value:.5f}  Max: {max_value:.5f}  Avg: {avg_value:.5f}"
+            )
+        elif valid_values:
             min_value = min(valid_values)
             max_value = max(valid_values)
             avg_value = sum(valid_values) / len(valid_values)
@@ -193,7 +204,7 @@ class HeightGraphPanel(Vertical):
             right = "now"
         else:
             left = "1"
-            right = str(len(self._display_samples()))
+            right = str(self.total_count or len(self._display_samples()))
 
         gap = max(1, width - len(left) - len(right))
         return left + (" " * gap) + right
@@ -214,8 +225,11 @@ class HeightGraphPanel(Vertical):
 class HeightSource:
     key: str
     label: str
-    samples: list[GraphSample]
-    layers: dict[int, list[GraphSample]]
+    layers: dict[int, list[float]]
+    sample_count: int = 0
+    min_value: float | None = None
+    max_value: float | None = None
+    avg_value: float | None = None
     current_layer_index: int = 0
     active: bool = False
     paused: bool = False
@@ -417,7 +431,10 @@ class HeightDataPanel(Horizontal):
 
     def set_tracker_sources(
         self,
-        trackers: dict[str, tuple[bool, bool, int, dict[int, list[float]]]],
+        trackers: dict[
+            str,
+            tuple[bool, bool, int, dict[int, list[float]], int, float | None, float | None, float | None],
+        ],
     ) -> None:
         self.sources = [
             HeightSource(
@@ -425,36 +442,28 @@ class HeightDataPanel(Horizontal):
                 label=(
                     f"{registry} "
                     f"({self._tracking_state_label(active, paused)}, "
-                    f"{self._layer_count(layers)} samples, "
+                    f"{sample_count} samples, "
                     f"layer {current_layer})"
                 ),
-                samples=[
-                    GraphSample(
-                        value_mm=value,
-                        valid=True,
-                        layer_index=layer_index,
-                        layer_sample_index=sample_index,
-                    )
-                    for layer_index, values in sorted(layers.items())
-                    for sample_index, value in enumerate(values, start=1)
-                ],
-                layers={
-                    layer_index: [
-                        GraphSample(
-                            value_mm=value,
-                            valid=True,
-                            layer_index=layer_index,
-                            layer_sample_index=sample_index,
-                        )
-                        for sample_index, value in enumerate(values, start=1)
-                    ]
-                    for layer_index, values in sorted(layers.items())
-                },
+                layers={layer_index: list(values) for layer_index, values in layers.items()},
+                sample_count=sample_count,
+                min_value=min_value,
+                max_value=max_value,
+                avg_value=avg_value,
                 current_layer_index=current_layer,
                 active=active,
                 paused=paused,
             )
-            for registry, (active, paused, current_layer, layers) in sorted(trackers.items())
+            for registry, (
+                active,
+                paused,
+                current_layer,
+                layers,
+                sample_count,
+                min_value,
+                max_value,
+                avg_value,
+            ) in sorted(trackers.items())
         ]
 
         available_keys = {"LIVE"} | {source.key for source in self.sources}
@@ -702,8 +711,10 @@ class HeightDataPanel(Horizontal):
 
         graph.set_samples(
             f"Tracking {source.key.removeprefix('TRACK:')} ({self._selected_layer_label()})",
-            self._selected_tracker_samples(source),
+            self._selected_tracker_graph_samples(source),
             source_kind="TRACK",
+            stats=self._selected_tracker_stats(source),
+            total_count=self._selected_tracker_count(source),
         )
 
     def _selected_samples(self) -> list[GraphSample]:
@@ -781,14 +792,158 @@ class HeightDataPanel(Horizontal):
         selected_layer = self.selected_layers.get(source.key, "ALL")
 
         if selected_layer == "ALL":
-            return list(source.samples)
+            return self._tracker_samples_from_layers(source.layers)
 
         try:
             layer_index = int(selected_layer)
         except ValueError:
-            return list(source.samples)
+            return self._tracker_samples_from_layers(source.layers)
+
+        return [
+            GraphSample(
+                value_mm=value,
+                valid=True,
+                layer_index=layer_index,
+                layer_sample_index=sample_index,
+            )
+            for sample_index, value in enumerate(source.layers.get(layer_index, []), start=1)
+        ]
+
+    def _selected_tracker_graph_samples(self, source: HeightSource) -> list[GraphSample]:
+        total_count = self._selected_tracker_count(source)
+
+        if total_count == 0:
+            return []
+
+        graph = self.query_one("#height-graph-panel", HeightGraphPanel)
+        width = max(20, graph.size.width - 9)
+
+        if total_count <= width:
+            return self._selected_tracker_samples(source)
+
+        if width <= 1:
+            point = self._selected_tracker_point_at(source, total_count - 1)
+            return [] if point is None else [point]
+
+        return [
+            point
+            for index in range(width)
+            if (point := self._selected_tracker_point_at(
+                source,
+                round(index * (total_count - 1) / (width - 1)),
+            ))
+            is not None
+        ]
+
+    def _selected_tracker_point_at(
+        self,
+        source: HeightSource,
+        flat_index: int,
+    ) -> GraphSample | None:
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+
+        if selected_layer != "ALL":
+            try:
+                layer_index = int(selected_layer)
+            except ValueError:
+                selected_layer = "ALL"
+            else:
+                values = source.layers.get(layer_index, [])
+
+                if not 0 <= flat_index < len(values):
+                    return None
+
+                return GraphSample(
+                    value_mm=values[flat_index],
+                    valid=True,
+                    layer_index=layer_index,
+                    layer_sample_index=flat_index + 1,
+                )
+
+        offset = flat_index
+
+        for layer_index, values in sorted(source.layers.items()):
+            if offset < len(values):
+                return GraphSample(
+                    value_mm=values[offset],
+                    valid=True,
+                    layer_index=layer_index,
+                    layer_sample_index=offset + 1,
+                )
+
+            offset -= len(values)
+
+        return None
+
+    def _selected_tracker_count(self, source: HeightSource) -> int:
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+
+        if selected_layer == "ALL":
+            return source.sample_count
+
+        try:
+            layer_index = int(selected_layer)
+        except ValueError:
+            return self._layer_count(source.layers)
+
+        return len(source.layers.get(layer_index, []))
+
+    def _selected_tracker_stats(self, source: HeightSource) -> tuple[float, float, float] | None:
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+
+        if selected_layer == "ALL":
+            if (
+                source.sample_count == 0
+                or source.min_value is None
+                or source.max_value is None
+                or source.avg_value is None
+            ):
+                return None
+
+            return source.min_value, source.max_value, source.avg_value
+
+        values = self._selected_tracker_values(source)
+
+        if not values:
+            return None
+
+        return min(values), max(values), sum(values) / len(values)
+
+    def _selected_tracker_values(self, source: HeightSource) -> list[float]:
+        selected_layer = self.selected_layers.get(source.key, "ALL")
+
+        if selected_layer == "ALL":
+            return [
+                value
+                for _, values in sorted(source.layers.items())
+                for value in values
+            ]
+
+        try:
+            layer_index = int(selected_layer)
+        except ValueError:
+            return [
+                value
+                for _, values in sorted(source.layers.items())
+                for value in values
+            ]
 
         return list(source.layers.get(layer_index, []))
+
+    @staticmethod
+    def _tracker_samples_from_layers(
+        layers: dict[int, list[float]],
+    ) -> list[GraphSample]:
+        return [
+            GraphSample(
+                value_mm=value,
+                valid=True,
+                layer_index=layer_index,
+                layer_sample_index=sample_index,
+            )
+            for layer_index, values in sorted(layers.items())
+            for sample_index, value in enumerate(values, start=1)
+        ]
 
     def _selected_layer_label(self) -> str:
         source = self._selected_tracker_source()
