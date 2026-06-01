@@ -417,6 +417,8 @@ class HeightDataPanel(Horizontal):
             )
         )
 
+        self._render_source_list()
+
         if self.selected_source_key == "LIVE":
             self._render_selected_source()
 
@@ -432,6 +434,8 @@ class HeightDataPanel(Horizontal):
                 timestamp_ns=time.time_ns(),
             )
         )
+
+        self._render_source_list()
 
         if self.selected_source_key == "LIVE":
             self._render_selected_source()
