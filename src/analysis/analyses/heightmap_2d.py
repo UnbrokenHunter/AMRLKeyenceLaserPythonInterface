@@ -482,6 +482,12 @@ def _plot_3d_heightmap(
     y_range = float(np.nanmax(Y) - np.nanmin(Y))
     z_range = float(np.nanmax(Z_display) - np.nanmin(Z_display))
 
+    if x_range == 0:
+        x_range = 1.0
+
+    if y_range == 0:
+        y_range = 1.0
+
     if z_range == 0:
         z_range = 1.0
 
@@ -494,17 +500,30 @@ def _plot_3d_heightmap(
 
 
 def _downsample_surface_grid(X, Y, Z, *, max_grid: int):
-    max_dimension = max(X.shape)
+    rows, columns = X.shape
 
-    if max_dimension <= max_grid:
+    if max(rows, columns) <= max_grid:
         return X, Y, Z
 
-    step = max(1, int(max_dimension / max_grid))
+    row_step = _surface_axis_step(rows, max_grid=max_grid)
+    column_step = _surface_axis_step(columns, max_grid=max_grid)
     _progress(
-        f"downsampling 3D surface grid from {X.shape[1]} x {X.shape[0]} "
-        f"to about {X.shape[1] // step} x {X.shape[0] // step}"
+        f"downsampling 3D surface grid from {columns} x {rows} "
+        f"to about {len(range(0, columns, column_step))} x "
+        f"{len(range(0, rows, row_step))}"
     )
-    return X[::step, ::step], Y[::step, ::step], Z[::step, ::step]
+    return (
+        X[::row_step, ::column_step],
+        Y[::row_step, ::column_step],
+        Z[::row_step, ::column_step],
+    )
+
+
+def _surface_axis_step(size: int, *, max_grid: int) -> int:
+    if size <= 2:
+        return 1
+
+    return max(1, int(size / max_grid))
 
 
 def _heightmap_title_prefix(options: AnalysisOptions) -> str:
