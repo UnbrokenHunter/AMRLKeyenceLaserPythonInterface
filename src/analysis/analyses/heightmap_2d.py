@@ -11,6 +11,7 @@ from src.analysis.plot_helpers import metadata_title, save_figure
 
 GRAPH_NAME = "heightmap"
 SURFACE_GRAPH_NAME = "surface3d"
+GRAPH_NAMES = (GRAPH_NAME, SURFACE_GRAPH_NAME)
 
 
 def create_plots(
@@ -25,7 +26,7 @@ def create_plots(
     import numpy as np
 
     _progress("building physical X/Y/Z points")
-    x, y, z, layer_indices = _physical_points_per_layer(
+    x, y, z, invalid_x, invalid_y, layer_indices = _physical_points_per_layer(
         data,
         force_metadata_size=options.heightmap_force_metadata_size,
     )
@@ -41,16 +42,21 @@ def create_plots(
         z_label = "Tilt-corrected height (mm)"
         _print_plane(plane)
 
-    grid_x_count = max(2, options.heightmap_grid_x_count)
-    grid_y_count = max(2, options.heightmap_grid_y_count)
-    _progress(f"interpolating points to {grid_x_count} x {grid_y_count} grid")
-    X, Y, Z = _interpolate_points_to_grid(
-        x,
-        y,
-        z,
-        grid_x_count=grid_x_count,
-        grid_y_count=grid_y_count,
-    )
+    if options.heightmap_force_metadata_size:
+        grid_x_count = max(2, options.heightmap_grid_x_count)
+        grid_y_count = max(2, options.heightmap_grid_y_count)
+        _progress(f"interpolating points to {grid_x_count} x {grid_y_count} grid")
+        X, Y, Z = _interpolate_points_to_grid(
+            x,
+            y,
+            z,
+            grid_x_count=grid_x_count,
+            grid_y_count=grid_y_count,
+        )
+    else:
+        _progress("building ragged sample-count grid")
+        X, Y, Z = _ragged_grid_from_points(x, y, z)
+        grid_y_count, grid_x_count = Z.shape
 
     if options.heightmap_gaussian_sigma > 0:
         _progress(f"applying Gaussian smoothing sigma={options.heightmap_gaussian_sigma:g}")
@@ -80,6 +86,10 @@ def create_plots(
             colorbar_label=z_label,
             contour_levels=options.heightmap_contours,
             cmap_name=options.heightmap_cmap,
+            invalid_x=invalid_x,
+            invalid_y=invalid_y,
+            mark_invalid=options.mark_invalid,
+            force_metadata_size=options.heightmap_force_metadata_size,
         )
         figures.append((top_fig, "heightmap_top_down.png"))
 
@@ -94,6 +104,9 @@ def create_plots(
             z_exaggeration=options.heightmap_z_exaggeration,
             cmap_name=options.heightmap_cmap,
             max_grid=options.surface3d_max_grid,
+            invalid_x=invalid_x,
+            invalid_y=invalid_y,
+            mark_invalid=options.mark_invalid,
         )
         figures.append((surface_fig, "heightmap_3d.png"))
 
@@ -122,22 +135,21 @@ def _physical_points_per_layer(
     layers = [
         layer
         for layer in data.layer_indices
-        if data.valid_samples_for_layer(layer)
+        if data.samples_for_layer(layer)
     ]
 
     if not layers:
-        return np.array([]), np.array([]), np.array([]), []
+        return np.array([]), np.array([]), np.array([]), np.array([]), np.array([]), []
 
     x_extent, y_extent = _physical_extents(data, layers, force_metadata_size)
     all_x = []
     all_y = []
     all_z = []
+    invalid_x = []
+    invalid_y = []
 
     for layer_order, layer in enumerate(layers):
-        samples = sorted(
-            data.valid_samples_for_layer(layer),
-            key=_sample_order,
-        )
+        samples = sorted(data.samples_for_layer(layer), key=_sample_order)
         sample_positions = np.array(
             [
                 float(
@@ -149,19 +161,19 @@ def _physical_points_per_layer(
             ],
             dtype=float,
         )
-        z_values = np.array([sample.value_mm for sample in samples], dtype=float)
-
         sample_min = float(np.nanmin(sample_positions))
         sample_max = float(np.nanmax(sample_positions))
 
         if sample_max == sample_min:
             x_values = np.zeros_like(sample_positions)
-        else:
+        elif force_metadata_size:
             x_values = (
                 (sample_positions - sample_min)
                 / (sample_max - sample_min)
                 * x_extent
             )
+        else:
+            x_values = sample_positions - sample_min
 
         if len(layers) == 1:
             y_value = 0.0
@@ -169,15 +181,32 @@ def _physical_points_per_layer(
             y_value = layer_order / (len(layers) - 1) * y_extent
 
         y_values = np.full_like(x_values, y_value, dtype=float)
+        valid_mask = np.array([sample.valid for sample in samples], dtype=bool)
 
-        all_x.append(x_values)
-        all_y.append(y_values)
-        all_z.append(z_values)
+        if valid_mask.any():
+            all_x.append(x_values[valid_mask])
+            all_y.append(y_values[valid_mask])
+            all_z.append(
+                np.array(
+                    [
+                        sample.value_mm
+                        for sample in samples
+                        if sample.valid
+                    ],
+                    dtype=float,
+                )
+            )
+
+        if (~valid_mask).any():
+            invalid_x.append(x_values[~valid_mask])
+            invalid_y.append(y_values[~valid_mask])
 
     return (
-        np.concatenate(all_x),
-        np.concatenate(all_y),
-        np.concatenate(all_z),
+        np.concatenate(all_x) if all_x else np.array([]),
+        np.concatenate(all_y) if all_y else np.array([]),
+        np.concatenate(all_z) if all_z else np.array([]),
+        np.concatenate(invalid_x) if invalid_x else np.array([]),
+        np.concatenate(invalid_y) if invalid_y else np.array([]),
         layers,
     )
 
@@ -187,11 +216,14 @@ def _physical_extents(
     layers: list[int],
     force_metadata_size: bool,
 ) -> tuple[float, float]:
-    scan_width = _positive_metadata_value(data.metadata.get("scan_width"))
-    scan_length = _positive_metadata_value(data.metadata.get("scan_length"))
     sample_extent = float(max(1, _max_layer_count(data, layers) - 1))
     layer_extent = _layer_extent(data, layers)
 
+    if not force_metadata_size:
+        return max(1e-9, sample_extent), max(1e-9, layer_extent)
+
+    scan_width = _positive_metadata_value(data.metadata.get("scan_width"))
+    scan_length = _positive_metadata_value(data.metadata.get("scan_length"))
     x_extent = float(scan_width) if scan_width is not None else sample_extent
     y_extent = float(scan_length) if scan_length is not None else layer_extent
 
@@ -220,7 +252,7 @@ def _layer_extent(data: ExportData, layers: list[int]) -> float:
 
 
 def _max_layer_count(data: ExportData, layers: list[int]) -> int:
-    return max(len(data.valid_samples_for_layer(layer)) for layer in layers)
+    return max(len(data.samples_for_layer(layer)) for layer in layers)
 
 
 def _sample_order(sample: ExportSample) -> tuple[int, int]:
@@ -279,6 +311,32 @@ def _interpolate_points_to_grid(
     return X, Y, Z
 
 
+def _ragged_grid_from_points(x, y, z):
+    import numpy as np
+
+    x_unique = np.unique(x)
+    y_unique = np.unique(y)
+    x_unique.sort()
+    y_unique.sort()
+
+    if len(x_unique) == 0 or len(y_unique) == 0:
+        return (
+            np.empty((0, 0)),
+            np.empty((0, 0)),
+            np.empty((0, 0)),
+        )
+
+    x_lookup = {value: index for index, value in enumerate(x_unique)}
+    y_lookup = {value: index for index, value in enumerate(y_unique)}
+    Z = np.full((len(y_unique), len(x_unique)), np.nan, dtype=float)
+
+    for x_value, y_value, z_value in zip(x, y, z):
+        Z[y_lookup[y_value], x_lookup[x_value]] = z_value
+
+    X, Y = np.meshgrid(x_unique, y_unique)
+    return X, Y, Z
+
+
 def _gaussian_smooth_nan_safe(Z, *, sigma: float):
     import numpy as np
 
@@ -313,22 +371,29 @@ def _plot_top_down_heightmap(
     colorbar_label: str,
     cmap_name: str,
     contour_levels: int,
+    invalid_x,
+    invalid_y,
+    mark_invalid: bool,
+    force_metadata_size: bool,
 ):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    fig, ax = plt.subplots(figsize=(12, 10))
+    fig_size = (18, 8) if not force_metadata_size else (12, 10)
+    fig, ax = plt.subplots(figsize=fig_size)
+    cmap = plt.get_cmap(cmap_name).copy()
+    cmap.set_bad(color="white")
     image = ax.imshow(
         Z,
         origin="lower",
-        aspect="equal",
+        aspect="equal" if force_metadata_size else "auto",
         extent=[
             float(np.nanmin(X)),
             float(np.nanmax(X)),
             float(np.nanmin(Y)),
             float(np.nanmax(Y)),
         ],
-        cmap=cmap_name,
+        cmap=cmap,
     )
     ax.set_title(title)
     ax.set_xlabel("X position (mm)")
@@ -347,6 +412,19 @@ def _plot_top_down_heightmap(
         )
         ax.clabel(contours, inline=True, fontsize=7)
 
+    if mark_invalid and len(invalid_x) > 0:
+        ax.scatter(
+            invalid_x,
+            invalid_y,
+            color="#d62728",
+            marker="x",
+            s=18,
+            linewidths=0.8,
+            label="Invalid sample",
+            zorder=4,
+        )
+        ax.legend(loc="upper right")
+
     fig.tight_layout()
     return fig, ax
 
@@ -361,6 +439,9 @@ def _plot_3d_heightmap(
     z_exaggeration: float,
     cmap_name: str,
     max_grid: int,
+    invalid_x,
+    invalid_y,
+    mark_invalid: bool,
 ):
     import matplotlib.pyplot as plt
     import numpy as np
@@ -377,6 +458,21 @@ def _plot_3d_heightmap(
         linewidth=0,
         antialiased=True,
     )
+
+    if mark_invalid and len(invalid_x) > 0:
+        invalid_z = float(np.nanmin(Z_display))
+        ax.scatter(
+            invalid_x,
+            invalid_y,
+            [invalid_z for _ in range(len(invalid_x))],
+            color="#d62728",
+            marker="x",
+            s=20,
+            label="Invalid sample",
+            depthshade=False,
+        )
+        ax.legend(loc="best")
+
     ax.set_title(f"{title} | Z exaggerated {z_exaggeration:g}x")
     ax.set_xlabel("X position (mm)")
     ax.set_ylabel("Y position (mm)")

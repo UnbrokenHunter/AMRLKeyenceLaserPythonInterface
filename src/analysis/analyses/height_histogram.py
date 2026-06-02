@@ -44,6 +44,23 @@ def create_plots(
     ax.grid(True, axis="y", alpha=0.3)
     ax.legend(loc="best")
 
+    if options.mark_invalid:
+        invalid_count = len([
+            sample
+            for sample in _selected_samples(data, options)
+            if not sample.valid
+        ])
+        ax.text(
+            0.98,
+            0.95,
+            f"Invalid samples: {invalid_count}",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            bbox={"facecolor": "white", "alpha": 0.75, "edgecolor": "#d62728"},
+            color="#d62728",
+        )
+
     if not options.save:
         return []
 

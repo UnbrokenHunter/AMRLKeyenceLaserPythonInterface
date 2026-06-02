@@ -33,8 +33,16 @@ def create_plots(
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(x_values, y_values, linewidth=1.0, color="#1f77b4")
 
-    invalid_x = [x for x, sample in zip(x_values, samples) if not sample.valid]
-    invalid_y = [sample.value_mm for sample in samples if not sample.valid]
+    invalid_x = [
+        x
+        for x, sample in zip(x_values, samples)
+        if options.mark_invalid and not sample.valid
+    ]
+    invalid_y = [
+        sample.value_mm
+        for sample in samples
+        if options.mark_invalid and not sample.valid
+    ]
 
     if invalid_x:
         ax.scatter(

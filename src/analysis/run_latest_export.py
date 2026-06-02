@@ -76,6 +76,11 @@ def main() -> None:
         help="Save generated analysis files. Without this, graph windows open interactively and plots are not written to disk.",
     )
     parser.add_argument(
+        "--mark-invalid",
+        action="store_true",
+        help="Mark invalid CSV samples on supported graphs.",
+    )
+    parser.add_argument(
         "--heightmap-tilt-correction",
         action="store_true",
         help="Subtract the best-fit plane before creating the 2D heightmap.",
@@ -140,6 +145,7 @@ def main() -> None:
         save=args.save,
         title=args.title,
         layer=args.layer,
+        mark_invalid=args.mark_invalid,
         heightmap_tilt_correction=args.heightmap_tilt_correction,
         heightmap_gaussian_sigma=max(0.0, args.heightmap_gaussian_sigma),
         heightmap_force_metadata_size=args.heightmap_force_metadata_size,

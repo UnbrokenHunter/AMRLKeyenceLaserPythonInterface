@@ -39,6 +39,23 @@ def create_plots(
         y_values = [sample.value_mm for sample in samples]
         ax.plot(x_values, y_values, linewidth=1.0, label=f"Layer {layer_index}")
 
+        if options.mark_invalid:
+            invalid_x = [
+                x for x, sample in zip(x_values, samples) if not sample.valid
+            ]
+            invalid_y = [sample.value_mm for sample in samples if not sample.valid]
+
+            if invalid_x:
+                ax.scatter(
+                    invalid_x,
+                    invalid_y,
+                    color="#d62728",
+                    marker="x",
+                    s=22,
+                    label=f"Layer {layer_index} invalid",
+                    zorder=3,
+                )
+
     title = "Height Layer" if options.layer is not None else "Height By Layer"
     ax.set_title(f"{title}\n{metadata_title(data, options.title)}")
     ax.set_xlabel("Layer sample time/index")

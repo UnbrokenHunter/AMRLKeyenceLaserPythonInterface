@@ -11,6 +11,7 @@ class AnalysisOptions:
     save: bool = False
     title: str | None = None
     layer: int | None = None
+    mark_invalid: bool = False
     heightmap_tilt_correction: bool = False
     heightmap_gaussian_sigma: float = 0.0
     heightmap_force_metadata_size: bool = False

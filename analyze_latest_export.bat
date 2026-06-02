@@ -36,6 +36,7 @@ if "%~1"=="" (
     echo   --graphs trace layers histogram heightmap surface3d summary
     echo   --save
     echo   --title "Custom Plot Title"
+    echo   --mark-invalid
     echo   --csv PATH_TO_EXPORT.csv
     echo   --export-dir exports
     echo   --output-dir analysis_outputs

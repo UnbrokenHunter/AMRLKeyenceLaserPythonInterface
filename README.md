@@ -395,6 +395,12 @@ To save selected outputs:
 analyze_latest_export.bat --graphs trace heightmap summary --save
 ```
 
+To mark invalid samples on supported graphs:
+
+```bat
+analyze_latest_export.bat --graphs trace heightmap --mark-invalid
+```
+
 Available graph/report names:
 
 - 1D graphs: `trace`, `layers`, `histogram`
@@ -443,7 +449,7 @@ Heightmap flags:
 
 - `--heightmap-tilt-correction`: subtracts a best-fit plane before plotting.
 - `--heightmap-gaussian-sigma <number>`: smooths the heightmap; `0` disables smoothing.
-- `--heightmap-force-metadata-size`: resamples layer rows so the map fills the metadata extents even when layers have different sample counts. If metadata size is missing, this forces a square visible plotting area from the available sample/layer span.
+- `--heightmap-force-metadata-size`: uses metadata dimensions for the X/Y plotting extents and interpolates into that physical rectangle. Without this flag, the 2D heightmap is a ragged sample-count grid: each layer ends where its samples end, shorter rows leave blank space on the right, and Y is spread by layer spacing.
 - `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
 - `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
 - `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
