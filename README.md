@@ -191,7 +191,7 @@ Main controls:
 
 - `Close`: closes serial connections and exits the app.
 - `Connect`: applies the current settings and opens the Keyence/SPC serial connections.
-- `Read`: performs one averaged Keyence read.
+- `Read`: reads the current Keyence sensor value once.
 - `Keyence Stream`: starts or stops Keyence automatic transmission.
 - `Height`: shows or hides the height graph panel.
 - `Status`: shows or hides all status panels.
@@ -462,7 +462,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `PING` | | Check whether the Python bridge is responding. | `1` |
 | `STATUS` | | Return current bridge, SPC peer, stream, and height state. | `KEYENCE_CONNECTED=...;SPC_CONNECTED=...;STREAMING=...;HEIGHT=...` |
 | `GET_LAST_HEIGHT` | `GET_HEIGHT`, `HEIGHT?` | Return the latest known Keyence height without forcing a read. | numeric height or `NO_HEIGHT` |
-| `READ_HEIGHT` | `READ_ONCE` | Perform a fresh averaged Keyence read and return the height. | numeric height or `ERROR ...` |
+| `READ_HEIGHT` | `READ_ONCE` | Read the current Keyence sensor value once and return it if valid. | numeric height or `ERROR ...` |
 | `GET_PROGRAM` | `PROGRAM?`, `GET_KEYENCE_PROGRAM` | Return the active Keyence program number using `PR`. | numeric program number or `ERROR ...` |
 | `SET_PROGRAM <program>` | `CHANGE_PROGRAM`, `SET_KEYENCE_PROGRAM` | Change the active Keyence program using `PW,<program>`. | `1` on success, `0` on failure |
 | `START_STREAM` | | Start Keyence automatic transmission. | `1` on success, `0` on failure |
@@ -477,7 +477,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Stop tracking/scanning, clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
 | `SAVE <registry>` | `SAVE_TRACKING`, `SAVE_SCAN` | Stop tracking a registry, stop Keyence scanning/streaming, and export the registry to CSV. | `1` on success, `0` on failure |
 | `SAVE_CSV <registry>` | `EXPORT_CSV`, `SAVE_TRACKING_CSV`, `EXPORT_TRACKING_CSV` | Save a named tracking registry to a CSV file in `exports`. | `1` on success, `0` on failure |
-| `RETURN_TRACKING <registry>` | | Return all samples from a named tracking registry. | `TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>` |
+| `RETURN_TRACKING <registry>` | | Return valid samples from a named tracking registry. | `TRACKING <registry> VALID_COUNT=<n> VALUES=<comma-separated-valid-mm-values>` |
 | `AVERAGE_TRACKING <registry>` | `AVG_TRACKING` | Return the average of a named tracking registry. | `TRACKING_AVG <registry> <value>` or `NO_TRACKING_DATA <registry>` |
 | `MAX_TRACKING <registry>` | | Return the maximum sample in a named tracking registry. | `TRACKING_MAX <registry> <value>` or `NO_TRACKING_DATA <registry>` |
 | `MIN_TRACKING <registry>` | | Return the minimum sample in a named tracking registry. | `TRACKING_MIN <registry> <value>` or `NO_TRACKING_DATA <registry>` |

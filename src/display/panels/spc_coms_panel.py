@@ -24,8 +24,8 @@ class SpcComsPanel(CommonComsPanel):
                 CommandComment("1", "Success"),
                 CommandComment("0", "Failure"),
                 CommandComment(
-                    r"TRACKING\s+\S+\s+COUNT=\d+\s+VALUES=.*",
-                    "Tracking registry sample list",
+                    r"TRACKING\s+\S+\s+VALID_COUNT=\d+\s+VALUES=.*",
+                    "Tracking registry valid sample list",
                     regex=True,
                 ),
                 CommandComment(
@@ -85,7 +85,7 @@ class SpcComsPanel(CommonComsPanel):
                 ),
                 CommandComment(
                     spc_command_pattern("READ_HEIGHT"),
-                    "Request a fresh averaged Keyence read",
+                    "Request one current Keyence read",
                     regex=True,
                 ),
                 CommandComment(
@@ -235,7 +235,7 @@ class SpcComsPanel(CommonComsPanel):
                 ),
                 CommandComment(
                     spc_command_pattern("RETURN_TRACKING"),
-                    "Return all samples from a named tracking registry",
+                    "Return valid samples from a named tracking registry",
                     regex=True,
                 ),
                 CommandComment(

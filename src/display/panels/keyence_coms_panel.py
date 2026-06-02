@@ -151,19 +151,6 @@ def describe_ms_response(match: re.Match[str]) -> str:
     return f"Measurement received: {value}; {result_text}; result is {judgment}"
 
 
-def describe_avg_response(match: re.Match[str]) -> str:
-    value = match.group(1)
-    result_info = match.group(2)
-    judgment = match.group(3)
-
-    result_text = RESULT_INFO_COMMENTS.get(
-        result_info,
-        f"status {result_info}",
-    )
-
-    return f"Averaged reading: {value}; {result_text}; result is {judgment}"
-
-
 def describe_ms_invalid_response(match: re.Match[str]) -> str:
     value = match.group(1)
     result_info = match.group(2)
@@ -242,29 +229,13 @@ def describe_keyence_text(text: str) -> str:
     return "Unknown command or response"
 
 
-def describe_repeated_command(match: re.Match[str]) -> str:
-    repeated_message = match.group(1)
-    count = match.group(2)
-
-    base_comment = describe_keyence_text(repeated_message)
-
-    return f"{base_comment}; happened {count} times"
-
-
 KEYENCE_COMMAND_COMMENTS = [
-    CommandComment(r"(.+) REPEATED (\d+) TIMES", describe_repeated_command, regex=True),
-
     CommandComment(r"ER,(\d{2})", describe_short_error_response, regex=True),
     CommandComment(r"ER,([^,]+),(\d{2})", describe_error_response, regex=True),
 
     CommandComment(
         r"MS,([+-]?\d+(?:\.\d+)?),(\d+),(HI|GO|LO|--)",
         describe_ms_response,
-        regex=True,
-    ),
-    CommandComment(
-        r"AVG,([+-]?\d+(?:\.\d+)?),(\d+),(HI|GO|LO|--)",
-        describe_avg_response,
         regex=True,
     ),
     CommandComment(

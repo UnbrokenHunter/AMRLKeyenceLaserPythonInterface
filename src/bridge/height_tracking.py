@@ -166,14 +166,16 @@ class HeightTrackerManager:
         with self._lock:
             return self._get_track(registry).metadata
 
-    def values(self, registry: str) -> list[float]:
-        return [sample.value_mm for sample in self.samples(registry) if sample.valid]
+    def valid_values(self, registry: str) -> list[float]:
+        return [
+            sample.value_mm for sample in self.all_samples(registry) if sample.valid
+        ]
 
-    def samples(self, registry: str) -> list[TrackedHeightSample]:
+    def all_samples(self, registry: str) -> list[TrackedHeightSample]:
         with self._lock:
             return list(self._get_track(registry).samples)
 
-    def layers(self, registry: str) -> dict[int, list[float]]:
+    def valid_layers(self, registry: str) -> dict[int, list[float]]:
         with self._lock:
             return {
                 layer_index: [sample.value_mm for sample in samples if sample.valid]
@@ -209,9 +211,13 @@ class HeightTrackerManager:
         with self._lock:
             return self._get_track(registry).max_value
 
-    def count(self, registry: str) -> int:
+    def total_sample_count(self, registry: str) -> int:
         with self._lock:
             return len(self._get_track(registry).samples)
+
+    def valid_sample_count(self, registry: str) -> int:
+        with self._lock:
+            return self._get_track(registry).valid_count
 
     def is_active(self, registry: str) -> bool:
         with self._lock:

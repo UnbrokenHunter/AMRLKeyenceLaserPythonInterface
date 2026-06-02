@@ -8,7 +8,6 @@ if __name__ == "__main__":
     config = BridgeConfig(
         keyence_port="COM5",
         spc_port="COM21",
-        average_samples=5,
         keyence_out_no=1,
     )
 

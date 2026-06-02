@@ -55,8 +55,7 @@ class KeyenceInputClient(InputClient):
         self._ser.reset_output_buffer()
         self._stream_buffer.clear()
 
-        # Try to stop any old Keyence stream left from a previous crash/run.
-        self.emergency_stop_streaming()
+        self.clear_stale_streaming_output()
         
 
     def close(self) -> None:
@@ -73,6 +72,9 @@ class KeyenceInputClient(InputClient):
     def send_command(self, command: str) -> str:
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
+
+        if self.streaming:
+            raise RuntimeError("Cannot send command while Keyence streaming is active")
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
@@ -118,6 +120,9 @@ class KeyenceInputClient(InputClient):
     def start_streaming(self) -> None:
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
+
+        if self.streaming:
+            return
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
@@ -167,20 +172,19 @@ class KeyenceInputClient(InputClient):
         self._ser.reset_output_buffer()
         self._stream_buffer.clear()
 
-    def emergency_stop_streaming(self) -> None:
+    def clear_stale_streaming_output(self) -> None:
         """
-        Best-effort attempt to stop Keyence streaming output.
+        Best-effort cleanup for stream output left active by an earlier run.
 
-        This does not expect a clean NT response because the serial line may already
-        be flooded with stream data.
+        This keeps connect from being polluted by queued stream lines without
+        waiting for a clean NT acknowledgement.
         """
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
 
-        for _ in range(5):
-            self._ser.write(b"NT\r")
-            self._ser.flush()
-            time.sleep(0.1)
+        self._ser.write(b"NT\r")
+        self._ser.flush()
+        time.sleep(0.05)
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
@@ -208,42 +212,6 @@ class KeyenceInputClient(InputClient):
     def stream_command(self) -> str:
         return f"NS,3,{self._out_mask(self.out_no)}"
     
-    def read_latest_stream_reading(self) -> InputReading:
-        """
-        Read all currently buffered Keyence stream lines and return the newest one.
-
-        This prevents UI lag when the Keyence streams faster than the Textual UI polls.
-        """
-        if self._ser is None:
-            raise RuntimeError("Serial port is not open")
-
-        if not self.streaming:
-            raise RuntimeError("Keyence streaming output is not active")
-
-        latest: InputReading | None = None
-
-        # Always read at least one line.
-        first_line = self.read_raw_line()
-        if not first_line:
-            raise TimeoutError("No stream data from Keyence")
-
-        latest = parse_stream_response(first_line)
-
-        # Then drain whatever is already waiting in the serial buffer.
-        # in_waiting = bytes currently waiting in pyserial's receive buffer.
-        while self._ser.in_waiting > 0:
-            line = self.read_raw_line()
-
-            if not line:
-                break
-
-            if line == "NT":
-                continue
-
-            latest = parse_stream_response(line)
-
-        return latest
-
     def read_available_stream_readings(self, max_readings: int = 500) -> list[InputReading]:
         """
         Drain complete Keyence stream lines that are already buffered.
@@ -291,10 +259,3 @@ class KeyenceInputClient(InputClient):
         bits = ["0"] * 8
         bits[out_no - 1] = "1"
         return "".join(bits)
-    
-    def read_raw_bytes_until_cr(self) -> bytes:
-        if self._ser is None:
-            raise RuntimeError("Serial port is not open")
-
-        return self._ser.read_until(b"\r")
-    

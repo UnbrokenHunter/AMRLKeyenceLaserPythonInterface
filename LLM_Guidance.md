@@ -103,7 +103,6 @@ Current default assumptions:
 - SPC baud: `9600`
 - SPC reply terminator: `CRLF`
 - Keyence OUT: `1`
-- average read samples: `5`
 
 Shared serial settings live in `src.serial_settings`.
 

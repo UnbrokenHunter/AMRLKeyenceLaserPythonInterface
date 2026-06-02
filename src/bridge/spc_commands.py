@@ -13,7 +13,7 @@ not silently dispatch to the wrong handler.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, Iterable, TYPE_CHECKING
 
 from src.bridge.height_tracking import normalize_registry_name
 
@@ -79,7 +79,7 @@ class SpcCommandRegistry:
         message: str,
         context: SpcCommandContext,
     ) -> str | bytes | None:
-        parsed = parse_spc_message(message)
+        parsed = parse_spc_message(message, command_names=self._commands_by_name.keys())
 
         if parsed is None:
             return None
@@ -142,7 +142,7 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             SpcCommand(
                 name="READ_HEIGHT",
                 aliases=("READ_ONCE",),
-                description="Perform a fresh averaged Keyence read and return the height.",
+                description="Read the current Keyence sensor value once and return it if valid.",
                 reply_description="Numeric height in mm, or ERROR ...",
                 handler=_handle_read_once,
             ),
@@ -264,7 +264,7 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             SpcCommand(
                 name="RETURN_TRACKING",
                 description="Return all samples from a named tracking registry.",
-                reply_description="TRACKING <registry> COUNT=<n> VALUES=<comma-separated-mm-values>",
+                reply_description="TRACKING <registry> VALID_COUNT=<n> VALUES=<comma-separated-valid-mm-values>",
                 handler=_handle_return_tracking,
             ),
             SpcCommand(
@@ -290,14 +290,18 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
     )
 
 
-def parse_spc_message(message: str) -> ParsedSpcMessage | None:
+def parse_spc_message(
+    message: str,
+    *,
+    command_names: Iterable[str] | None = None,
+) -> ParsedSpcMessage | None:
     raw = message.strip()
 
     if not raw:
         return None
 
     parts = raw.replace(",", " ").split()
-    name, args = _parse_command_name_and_args(parts)
+    name, args = _parse_command_name_and_args(parts, command_names=command_names)
 
     return ParsedSpcMessage(raw=message, name=name, args=args)
 
@@ -306,53 +310,24 @@ def normalize_command_name(name: str) -> str:
     return name.strip().upper()
 
 
-def _parse_command_name_and_args(parts: list[str]) -> tuple[str, tuple[str, ...]]:
-    max_command_words = min(3, len(parts))
+def _parse_command_name_and_args(
+    parts: list[str],
+    *,
+    command_names: Iterable[str] | None = None,
+) -> tuple[str, tuple[str, ...]]:
+    command_name_set = set(command_names or ())
+    max_registered_words = max(
+        (name.count("_") + 1 for name in command_name_set),
+        default=1,
+    )
+    max_command_words = min(max_registered_words, len(parts))
 
     for word_count in range(max_command_words, 1, -1):
         spaced_name = normalize_command_name("_".join(parts[:word_count]))
-        if spaced_name in _SPC_SPACED_COMMANDS:
+        if spaced_name in command_name_set:
             return spaced_name, tuple(parts[word_count:])
 
     return normalize_command_name(parts[0]), tuple(parts[1:])
-
-
-_SPC_SPACED_COMMANDS = {
-    "GET_LAST_HEIGHT",
-    "GET_HEIGHT",
-    "GET_PROGRAM",
-    "GET_KEYENCE_PROGRAM",
-    "READ_HEIGHT",
-    "READ_ONCE",
-    "SET_PROGRAM",
-    "CHANGE_PROGRAM",
-    "SET_KEYENCE_PROGRAM",
-    "START_STREAM",
-    "STOP_STREAM",
-    "START_TRACKING",
-    "STOP_TRACKING",
-    "PAUSE_TRACKING",
-    "RESUME_TRACKING",
-    "CLEAR_TRACKING",
-    "SET_SCAN_METADATA",
-    "SET_SCAN_INFO",
-    "SCAN_METADATA",
-    "NEXT_LAYER",
-    "NEXT_SCAN_LAYER",
-    "PREPARE_TRACKING",
-    "PREPARE_SCAN",
-    "SAVE_TRACKING",
-    "SAVE_SCAN",
-    "SAVE_CSV",
-    "EXPORT_CSV",
-    "SAVE_TRACKING_CSV",
-    "EXPORT_TRACKING_CSV",
-    "RETURN_TRACKING",
-    "AVERAGE_TRACKING",
-    "AVG_TRACKING",
-    "MAX_TRACKING",
-    "MIN_TRACKING",
-}
 
 
 def _handle_ping(
@@ -519,9 +494,9 @@ def _handle_return_tracking(
     parsed: ParsedSpcMessage,
 ) -> str:
     registry = _tracking_registry_arg(parsed)
-    samples = context.controller.height_trackers.values(registry)
+    samples = context.controller.height_trackers.valid_values(registry)
     values = ",".join(_format_height_value(sample) for sample in samples)
-    return f"TRACKING {registry} COUNT={len(samples)} VALUES={values}"
+    return f"TRACKING {registry} VALID_COUNT={len(samples)} VALUES={values}"
 
 
 def _handle_average_tracking(

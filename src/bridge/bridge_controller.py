@@ -38,7 +38,7 @@ from src.bridge.spc_commands import (
 )
 from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.bridge.height_tracking import HeightTrackerManager
-from src.input.input_client import InputClient, InputReading
+from src.input.input_client import InputReading
 from src.input.keyence_input_client import KeyenceInputClient
 from src.output.spc_software_client import SpcSoftwareClient
 from src.serial_settings import (
@@ -58,7 +58,6 @@ class BridgeConfig:
     spc_baudrate: int = 9600
     spc_timeout: float = 0.01
     spc_terminator: bytes = b"\r\n"
-    average_samples: int = 5
     keyence_out_no: int = 1
     keyence_poll_interval_ms: int = 5
 
@@ -69,7 +68,7 @@ class BridgeConfig:
 class BridgeController:
     def __init__(self, config: BridgeConfig) -> None:
         self.config = config
-        self.input_client: InputClient = self._create_input_client()
+        self.input_client: KeyenceInputClient = self._create_input_client()
         self.spc_client = self._create_spc_client()
         self.spc_commands = create_default_spc_command_registry()
         self.height_trackers = HeightTrackerManager()
@@ -123,18 +122,18 @@ class BridgeController:
 
             reading = self.input_client.read_once()
 
-            self._emit(BridgeEventType.KEYENCE_SENT, self._read_command_text())
+            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
 
-            if not reading.ok:
-                raise RuntimeError(
-                    f"Keyence responded, but reading is not OK: {reading.raw}"
-                )
-
             self.state.keyence.connected = True
-            self.state.keyence.height_mm = reading.value_mm
-            self._record_height_sample(reading.value_mm)
-            self.state.keyence.state = f"Connected OUT{self.config.keyence_out_no}"
+            if reading.ok:
+                self.state.keyence.height_mm = reading.value_mm
+                self.state.keyence.state = f"Connected OUT{self.config.keyence_out_no}"
+            else:
+                self.state.keyence.state = (
+                    f"Connected OUT{self.config.keyence_out_no}; "
+                    f"initial read invalid ({reading.judgment})"
+                )
 
         except Exception as error:
             self.state.keyence.connected = False
@@ -173,15 +172,15 @@ class BridgeController:
             if not self.state.keyence.connected:
                 raise RuntimeError("Cannot read: Keyence is not connected")
 
-            reading = self.input_client.read_average(samples=self.config.average_samples)
+            reading = self.input_client.read_once()
 
-            self.state.keyence.height_mm = reading.value_mm
-            self._record_height_sample(reading.value_mm)
-            self.state.keyence.state = f"Read OK ({reading.judgment})"
-            self._emit(
-                BridgeEventType.KEYENCE_SENT,
-                f"{self._read_command_text()} repeated {self.config.average_samples} times",
-            )
+            if reading.ok:
+                self.state.keyence.height_mm = reading.value_mm
+                self.state.keyence.state = f"Read OK ({reading.judgment})"
+            else:
+                self.state.keyence.state = f"Read invalid ({reading.judgment})"
+
+            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
             self._status_changed()
 
@@ -209,12 +208,8 @@ class BridgeController:
             else:
                 self.state.spc.state = "SPC not connected"
 
-            self._emit(BridgeEventType.KEYENCE_SENT, self._stream_command_text())
-
-            if hasattr(self.input_client, "start_streaming"):
-                self.input_client.start_streaming()  # type: ignore[attr-defined]
-            else:
-                raise RuntimeError("Input client does not support streaming")
+            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.stream_command())
+            self.input_client.start_streaming()
 
             self._start_stream_reader()
             self._emit(BridgeEventType.SYSTEM, "Keyence stream started")
@@ -248,32 +243,14 @@ class BridgeController:
             else:
                 self.state.spc.state = "SPC not connected"
 
-            if hasattr(self.input_client, "stop_streaming"):
-                self._emit(BridgeEventType.KEYENCE_SENT, "NT")
-                self.input_client.stop_streaming()  # type: ignore[attr-defined]
+            self._emit(BridgeEventType.KEYENCE_SENT, "NT")
+            self.input_client.stop_streaming()
 
             self._emit(BridgeEventType.SYSTEM, "Keyence stream stopped")
             self._status_changed()
 
         except Exception as error:
             self._set_error(error)
-
-
-    def poll_stream_once(self) -> None:
-        if not self.state.streaming:
-            return
-
-        try:
-            readings = self._read_available_stream_readings(max_readings=500)
-
-            for reading in readings:
-                self._handle_stream_reading(reading, force_ui_event=True)
-
-        except Exception as error:
-            self.state.keyence.state = "Stream read failed"
-            self.state.last_error = str(error)
-            self._emit(BridgeEventType.ERROR, f"Stream read failed: {error}")
-            self._status_changed()
 
     def poll_spc_once(self) -> None:
         if not self.state.spc.connected:
@@ -584,9 +561,8 @@ class BridgeController:
             self.state.streaming = False
             self._stop_stream_reader()
 
-            if hasattr(self.input_client, "stop_streaming"):
-                self._emit(BridgeEventType.KEYENCE_SENT, "NT")
-                self.input_client.stop_streaming()  # type: ignore[attr-defined]
+            self._emit(BridgeEventType.KEYENCE_SENT, "NT")
+            self.input_client.stop_streaming()
 
         except Exception as error:
             self._emit(
@@ -668,18 +644,9 @@ class BridgeController:
                 return
 
     def _read_available_stream_readings(self, max_readings: int) -> list[InputReading]:
-        if hasattr(self.input_client, "read_available_stream_readings"):
-            return self.input_client.read_available_stream_readings(  # type: ignore[attr-defined]
-                max_readings=max_readings
-            )
-
-        if hasattr(self.input_client, "read_latest_stream_reading"):
-            return [self.input_client.read_latest_stream_reading()]  # type: ignore[attr-defined]
-
-        if hasattr(self.input_client, "read_stream_line"):
-            return [self.input_client.read_stream_line()]  # type: ignore[attr-defined]
-
-        raise RuntimeError("Input client does not support streaming")
+        return self.input_client.read_available_stream_readings(
+            max_readings=max_readings
+        )
 
     def _handle_stream_reading(
         self,
@@ -797,18 +764,6 @@ class BridgeController:
         else:
             self.state.keyence.state = f"Manual command response: {response}"
 
-    def _read_command_text(self) -> str:
-        if hasattr(self.input_client, "read_command"):
-            return self.input_client.read_command()  # type: ignore[attr-defined]
-
-        return f"MS,3,{self.config.keyence_out_no}"
-
-    def _stream_command_text(self) -> str:
-        if hasattr(self.input_client, "stream_command"):
-            return self.input_client.stream_command()  # type: ignore[attr-defined]
-
-        return f"NS,3,{self._out_mask(self.config.keyence_out_no)}"
-
     def _connect_spc_peer(self) -> None:
         try:
             self.spc_client.connect()
@@ -848,18 +803,17 @@ class BridgeController:
             return "ERROR STREAMING_ACTIVE"
 
         try:
-            reading = self.input_client.read_average(samples=self.config.average_samples)
+            reading = self.input_client.read_once()
 
-            self.state.keyence.height_mm = reading.value_mm
-            self._record_height_sample(reading.value_mm)
-            self.state.keyence.state = f"SPC read OK ({reading.judgment})"
-
-            self._emit(
-                BridgeEventType.KEYENCE_SENT,
-                f"{self._read_command_text()} repeated {self.config.average_samples} times",
-            )
+            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
             self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
 
+            if not reading.ok:
+                self.state.keyence.state = f"SPC read invalid ({reading.judgment})"
+                return f"ERROR INVALID_READING {reading.raw}"
+
+            self.state.keyence.height_mm = reading.value_mm
+            self.state.keyence.state = f"SPC read OK ({reading.judgment})"
             return self._format_latest_height_reply()
 
         except Exception as error:
@@ -1048,7 +1002,7 @@ class BridgeController:
                 delta_y=metadata.delta_y,
                 scan_speed=metadata.scan_speed,
             )
-            for sample in self.height_trackers.samples(registry)
+            for sample in self.height_trackers.all_samples(registry)
         ]
 
         return export_height_samples(
@@ -1114,12 +1068,3 @@ class BridgeController:
                 terminator=self.config.spc_terminator,
             )
         )
-
-    @staticmethod
-    def _out_mask(out_no: int) -> str:
-        if not 1 <= out_no <= 8:
-            raise ValueError(f"Invalid OUT number: {out_no}")
-
-        bits = ["0"] * 8
-        bits[out_no - 1] = "1"
-        return "".join(bits)
