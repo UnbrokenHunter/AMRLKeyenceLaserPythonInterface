@@ -384,7 +384,7 @@ analyze_latest_export.bat trace heightmap summary --save
 To mark invalid samples on supported graphs:
 
 ```bat
-analyze_latest_export.bat trace heightmap --mark-invalid
+analyze_latest_export.bat trace heightmap -inv
 ```
 
 Available graph/report names:
@@ -440,6 +440,7 @@ Heightmap flags:
 - `-sq`, `--square`, `--heightmap-force-metadata-size`: uses metadata dimensions for the X/Y plotting extents and interpolates into that physical rectangle. Without this flag, the 2D heightmap is a ragged sample-count grid: each layer ends where its samples end, shorter rows leave blank space on the right, and Y is spread by layer spacing.
 - `-z <number>`, `--z-exaggeration <number>`, `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
 - `-l <count>`, `--contours <count>`, `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
+- `-inv`, `--mark-invalid`: marks invalid samples on supported graphs.
 - `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
 - `--heightmap-grid-y-count <count>`: interpolation grid resolution along Y.
 - `--heightmap-cmap <name>`: Matplotlib colormap, such as `turbo`, `viridis`, `plasma`, `inferno`, or `cividis`.

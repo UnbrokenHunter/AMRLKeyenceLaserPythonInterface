@@ -83,6 +83,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--mark-invalid",
+        "-inv",
         action="store_true",
         help="Mark invalid CSV samples on supported graphs.",
     )

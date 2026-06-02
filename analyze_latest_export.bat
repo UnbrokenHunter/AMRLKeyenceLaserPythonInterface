@@ -56,7 +56,7 @@ echo.
 echo General flags:
 echo   --save                    Save files to analysis_outputs instead of only opening windows
 echo   --title TEXT              Custom plot/report title
-echo   --mark-invalid            Mark invalid samples on supported graphs
+echo   -inv, --mark-invalid      Mark invalid samples on supported graphs
 echo   --csv PATH                Analyze an explicit CSV file
 echo   --export-dir PATH         Folder containing CSV exports
 echo   --output-dir PATH         Folder for saved analysis outputs
@@ -75,7 +75,7 @@ echo        --surface3d-max-grid COUNT
 echo.
 echo Examples:
 echo   heightmap -l 20
-echo   heightmap -t -sq -s 0.1 --mark-invalid
+echo   heightmap -t -sq -s 0.1 -inv
 echo   trace heightmap summary -t --save
 echo   heightmap surface3d -z 20 --title "Scan 12"
 echo.
