@@ -12,6 +12,7 @@ interface.
 
 from __future__ import annotations
 
+from io import BytesIO
 import time
 
 import serial
@@ -46,14 +47,14 @@ class KeyenceInputClient(InputClient):
         self.out_no = out_no
         self._ser: serial.Serial | None = None
         self.streaming = False
-        self._stream_buffer = bytearray()
+        self._stream_buffer = BytesIO()
 
     def open(self) -> None:
         self._ser = serial.Serial(**self.settings.serial_kwargs())
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
-        self._stream_buffer.clear()
+        self._reset_stream_buffer()
 
         self.clear_stale_streaming_output()
         
@@ -78,7 +79,7 @@ class KeyenceInputClient(InputClient):
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
-        self._stream_buffer.clear()
+        self._reset_stream_buffer()
 
         self._ser.write((command + CR).encode("ascii"))
 
@@ -154,7 +155,7 @@ class KeyenceInputClient(InputClient):
         time.sleep(0.05)
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
-        self._stream_buffer.clear()
+        self._reset_stream_buffer()
 
     def clear_stale_streaming_output(self) -> None:
         """
@@ -172,7 +173,7 @@ class KeyenceInputClient(InputClient):
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
-        self._stream_buffer.clear()
+        self._reset_stream_buffer()
         self.streaming = False
 
     def stream_command(self) -> str:
@@ -193,18 +194,20 @@ class KeyenceInputClient(InputClient):
             raise RuntimeError("Keyence streaming output is not active")
 
         waiting = self._ser.in_waiting
+        buffered = self._stream_buffer.getvalue()
 
-        if waiting <= 0 and b"\r" not in self._stream_buffer:
+        if waiting <= 0 and b"\r" not in buffered:
             return []
 
         if waiting > 0:
-            self._stream_buffer.extend(self._ser.read(waiting))
+            self._stream_buffer.seek(0, 2)
+            self._stream_buffer.write(self._ser.read(waiting))
 
         readings: list[InputReading] = []
+        buffer_bytes = self._stream_buffer.getvalue()
 
-        while b"\r" in self._stream_buffer and len(readings) < max_readings:
-            line_bytes, _, remainder = self._stream_buffer.partition(b"\r")
-            self._stream_buffer = bytearray(remainder)
+        while b"\r" in buffer_bytes and len(readings) < max_readings:
+            line_bytes, _, buffer_bytes = buffer_bytes.partition(b"\r")
             line = line_bytes.decode("ascii", errors="replace").strip()
 
             if not line:
@@ -212,7 +215,15 @@ class KeyenceInputClient(InputClient):
                                                                                                                                                                                                                        
             readings.append(parse_stream_response(line))
 
+        self._replace_stream_buffer(buffer_bytes)
         return readings
+
+    def _reset_stream_buffer(self) -> None:
+        self._stream_buffer = BytesIO()
+
+    def _replace_stream_buffer(self, data: bytes) -> None:
+        self._stream_buffer = BytesIO(data)
+        self._stream_buffer.seek(0, 2)
 
     @staticmethod
     def _out_mask(out_no: int) -> str:
