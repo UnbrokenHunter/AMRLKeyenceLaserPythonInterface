@@ -141,33 +141,17 @@ class KeyenceInputClient(InputClient):
         """
         Stop Keyence streaming output.
 
-        NT acknowledgement can be mixed with queued stream lines, so stopping is
-        best-effort. After stopping, clear remaining stream data from the buffer.
+        The Keyence stream RX path is measurement data. ``NT`` is sent as a
+        command, then queued stream data is flushed so the next one-shot command
+        gets its own response.
         """
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
 
         self.write_command_no_response("NT")
-
-        deadline = time.monotonic() + 1.0
-
-        while time.monotonic() < deadline:
-            line = self.read_raw_line()
-
-            if not line:
-                continue
-
-            if line == "NT":
-                break
-
-            # Ignore queued stream lines like:
-            # -01.5887,0,GO
-            continue
-
         self.streaming = False
 
-        # Important: flush old stream packets so the next MS command gets its own response.
-        time.sleep(0.1)
+        time.sleep(0.05)
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
         self._stream_buffer.clear()
@@ -177,7 +161,7 @@ class KeyenceInputClient(InputClient):
         Best-effort cleanup for stream output left active by an earlier run.
 
         This keeps connect from being polluted by queued stream lines without
-        waiting for a clean NT acknowledgement.
+        treating the stop command as an RX-side stream message.
         """
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
@@ -190,24 +174,6 @@ class KeyenceInputClient(InputClient):
         self._ser.reset_output_buffer()
         self._stream_buffer.clear()
         self.streaming = False
-
-    def read_stream_line(self) -> InputReading:
-        if self._ser is None:
-            raise RuntimeError("Serial port is not open")
-
-        if not self.streaming:
-            raise RuntimeError("Keyence streaming output is not active")
-
-        line = self.read_raw_line()
-
-        if not line:
-            raise TimeoutError("No stream data from Keyence")
-
-        # If the stop acknowledgement somehow appears here, skip it.
-        if line == "NT":
-            raise TimeoutError("Received NT while expecting stream data")
-
-        return parse_stream_response(line)
 
     def stream_command(self) -> str:
         return f"NS,3,{self._out_mask(self.out_no)}"
@@ -242,9 +208,6 @@ class KeyenceInputClient(InputClient):
             line = line_bytes.decode("ascii", errors="replace").strip()
 
             if not line:
-                continue
-
-            if line == "NT":
                 continue
                                                                                                                                                                                                                        
             readings.append(parse_stream_response(line))
