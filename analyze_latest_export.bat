@@ -36,20 +36,33 @@ if "%~1"=="" (
     echo   --graphs trace layers histogram heightmap surface3d summary
     echo   --save
     echo   --title "Custom Plot Title"
-    echo   --layer LAYER_INDEX
     echo   --csv PATH_TO_EXPORT.csv
     echo   --export-dir exports
     echo   --output-dir analysis_outputs
     echo.
-    echo Heightmap flags:
+    echo 1D graph flags for trace, layers, histogram:
+    echo   --layer LAYER_INDEX
+    echo.
+    echo 2D heightmap flags:
     echo   --heightmap-tilt-correction
     echo   --heightmap-gaussian-sigma NUMBER
     echo   --heightmap-force-metadata-size
-    echo   --heightmap-z-exaggeration NUMBER
     echo   --heightmap-contours COUNT
     echo   --heightmap-grid-x-count COUNT
     echo   --heightmap-grid-y-count COUNT
     echo   --heightmap-cmap NAME
+    echo.
+    echo 3D surface flags:
+    echo   --heightmap-tilt-correction
+    echo   --heightmap-gaussian-sigma NUMBER
+    echo   --heightmap-force-metadata-size
+    echo   --heightmap-z-exaggeration NUMBER
+    echo   --heightmap-grid-x-count COUNT
+    echo   --heightmap-grid-y-count COUNT
+    echo   --heightmap-cmap NAME
+    echo.
+    echo Summary report flags:
+    echo   --layer LAYER_INDEX
     echo.
     echo Notes:
     echo   --layer applies to the 1D graphs/reports.
