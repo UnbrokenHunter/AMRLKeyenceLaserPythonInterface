@@ -187,8 +187,8 @@ def _physical_extents(
     layers: list[int],
     force_metadata_size: bool,
 ) -> tuple[float, float]:
-    scan_width = data.metadata.get("scan_width")
-    scan_length = data.metadata.get("scan_length")
+    scan_width = _positive_metadata_value(data.metadata.get("scan_width"))
+    scan_length = _positive_metadata_value(data.metadata.get("scan_length"))
     sample_extent = float(max(1, _max_layer_count(data, layers) - 1))
     layer_extent = _layer_extent(data, layers)
 
@@ -201,6 +201,13 @@ def _physical_extents(
         y_extent = square_extent
 
     return max(1e-9, x_extent), max(1e-9, y_extent)
+
+
+def _positive_metadata_value(value: float | None) -> float | None:
+    if value is None or value <= 0:
+        return None
+
+    return float(value)
 
 
 def _layer_extent(data: ExportData, layers: list[int]) -> float:
