@@ -51,6 +51,7 @@ if "%~1"=="" (
     echo   --heightmap-grid-x-count COUNT
     echo   --heightmap-grid-y-count COUNT
     echo   --heightmap-cmap NAME
+    echo   --surface3d-max-grid COUNT
     echo.
     echo 3D surface flags:
     echo   --heightmap-tilt-correction

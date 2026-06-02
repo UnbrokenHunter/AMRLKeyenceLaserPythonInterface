@@ -449,6 +449,7 @@ Heightmap flags:
 - `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
 - `--heightmap-grid-y-count <count>`: interpolation grid resolution along Y.
 - `--heightmap-cmap <name>`: Matplotlib colormap, such as `turbo`, `viridis`, `plasma`, `inferno`, or `cividis`.
+- `--surface3d-max-grid <count>`: maximum grid width/height used for interactive 3D rendering. Lower values are faster.
 
 The heightmap normalizes X separately for each scan layer, spreads layers across Y, interpolates the uneven points onto a rectangular grid, and then plots both a top-down map and a 3D surface. This matches the intended scan shape better when different layers have different sample counts.
 

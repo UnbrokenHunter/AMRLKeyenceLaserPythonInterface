@@ -278,7 +278,7 @@ class KeyenceInputClient(InputClient):
 
             if line == "NT":
                 continue
-
+                                                                                                                                                                                                                       
             readings.append(parse_stream_response(line))
 
         return readings

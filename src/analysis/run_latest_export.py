@@ -123,6 +123,12 @@ def main() -> None:
         default="turbo",
         help="Matplotlib colormap for heightmaps, such as turbo, viridis, plasma, inferno, or cividis.",
     )
+    parser.add_argument(
+        "--surface3d-max-grid",
+        type=int,
+        default=160,
+        help="Maximum grid width/height used for interactive 3D surface plotting.",
+    )
     args = parser.parse_args()
 
     csv_path = Path(args.csv) if args.csv else latest_export(args.export_dir)
@@ -142,6 +148,7 @@ def main() -> None:
         heightmap_grid_x_count=max(2, args.heightmap_grid_x_count),
         heightmap_grid_y_count=max(2, args.heightmap_grid_y_count),
         heightmap_cmap=args.heightmap_cmap,
+        surface3d_max_grid=max(20, args.surface3d_max_grid),
     )
 
     if _matplotlib_required(options):
@@ -184,6 +191,7 @@ def main() -> None:
         if create_plots is None:
             continue
 
+        print(f"Running:   {', '.join(sorted(graph_names))}", flush=True)
         files = create_plots(data, output_dir, options)
         produced_files.extend(files)
 

@@ -19,6 +19,7 @@ class AnalysisOptions:
     heightmap_grid_x_count: int = 350
     heightmap_grid_y_count: int = 350
     heightmap_cmap: str = "turbo"
+    surface3d_max_grid: int = 160
 
     def graph_enabled(self, graph_name: str) -> bool:
         return "all" in self.graphs or graph_name in self.graphs

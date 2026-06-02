@@ -24,6 +24,7 @@ def create_plots(
     import matplotlib.pyplot as plt
     import numpy as np
 
+    _progress("building physical X/Y/Z points")
     x, y, z, layer_indices = _physical_points_per_layer(
         data,
         force_metadata_size=options.heightmap_force_metadata_size,
@@ -35,12 +36,14 @@ def create_plots(
     z_label = "Height (mm)"
 
     if options.heightmap_tilt_correction:
+        _progress("removing best-fit tilt plane")
         z, plane = _remove_best_fit_plane(x, y, z)
         z_label = "Tilt-corrected height (mm)"
         _print_plane(plane)
 
     grid_x_count = max(2, options.heightmap_grid_x_count)
     grid_y_count = max(2, options.heightmap_grid_y_count)
+    _progress(f"interpolating points to {grid_x_count} x {grid_y_count} grid")
     X, Y, Z = _interpolate_points_to_grid(
         x,
         y,
@@ -50,6 +53,7 @@ def create_plots(
     )
 
     if options.heightmap_gaussian_sigma > 0:
+        _progress(f"applying Gaussian smoothing sigma={options.heightmap_gaussian_sigma:g}")
         Z = _gaussian_smooth_nan_safe(Z, sigma=options.heightmap_gaussian_sigma)
         z_label = z_label.replace("height", "smoothed height")
 
@@ -67,6 +71,7 @@ def create_plots(
     figures = []
 
     if options.graph_enabled(GRAPH_NAME):
+        _progress("plotting 2D heightmap")
         top_fig, _ = _plot_top_down_heightmap(
             X,
             Y,
@@ -79,6 +84,7 @@ def create_plots(
         figures.append((top_fig, "heightmap_top_down.png"))
 
     if options.graph_enabled(SURFACE_GRAPH_NAME):
+        _progress("plotting 3D surface")
         surface_fig, _ = _plot_3d_heightmap(
             X,
             Y,
@@ -87,13 +93,18 @@ def create_plots(
             z_label=z_label,
             z_exaggeration=options.heightmap_z_exaggeration,
             cmap_name=options.heightmap_cmap,
+            max_grid=options.surface3d_max_grid,
         )
         figures.append((surface_fig, "heightmap_3d.png"))
 
     if not options.save:
         return []
 
-    paths = [save_figure(fig, output_dir, filename) for fig, filename in figures]
+    paths = []
+
+    for fig, filename in figures:
+        _progress(f"saving {filename}")
+        paths.append(save_figure(fig, output_dir, filename))
 
     for fig, _ in figures:
         plt.close(fig)
@@ -239,6 +250,7 @@ def _interpolate_points_to_grid(
     try:
         from scipy.interpolate import griddata
     except ImportError:
+        _progress("SciPy not installed; using slower nearest-neighbor fallback")
         return X, Y, _nearest_grid(x, y, z, X, Y)
 
     Z_linear = griddata(
@@ -267,6 +279,10 @@ def _nearest_grid(x, y, z, X, Y):
     values = []
 
     for start in range(0, len(flat_targets), chunk_size):
+        if start % (chunk_size * 10) == 0:
+            percent = min(100, int(start / max(1, len(flat_targets)) * 100))
+            _progress(f"nearest-neighbor fallback {percent}%")
+
         targets = flat_targets[start : start + chunk_size]
         distances = (
             (targets[:, None, 0] - points[None, :, 0]) ** 2
@@ -411,12 +427,14 @@ def _plot_3d_heightmap(
     z_label: str,
     z_exaggeration: float,
     cmap_name: str,
+    max_grid: int,
 ):
     import matplotlib.pyplot as plt
     import numpy as np
 
     fig = plt.figure(figsize=(18, 11))
     ax = fig.add_subplot(111, projection="3d")
+    X, Y, Z = _downsample_surface_grid(X, Y, Z, max_grid=max_grid)
     Z_display = Z * z_exaggeration
     surface = ax.plot_surface(
         X,
@@ -446,6 +464,20 @@ def _plot_3d_heightmap(
     return fig, ax
 
 
+def _downsample_surface_grid(X, Y, Z, *, max_grid: int):
+    max_dimension = max(X.shape)
+
+    if max_dimension <= max_grid:
+        return X, Y, Z
+
+    step = max(1, int(max_dimension / max_grid))
+    _progress(
+        f"downsampling 3D surface grid from {X.shape[1]} x {X.shape[0]} "
+        f"to about {X.shape[1] // step} x {X.shape[0] // step}"
+    )
+    return X[::step, ::step], Y[::step, ::step], Z[::step, ::step]
+
+
 def _heightmap_title_prefix(options: AnalysisOptions) -> str:
     parts = []
 
@@ -465,3 +497,7 @@ def _print_plane(plane: tuple[float, float, float]) -> None:
     print(f"  z = {a:.8f}*x + {b:.8f}*y + {c:.8f}")
     print(f"  X tilt slope: {a:.8f} mm/mm")
     print(f"  Y tilt slope: {b:.8f} mm/mm")
+
+
+def _progress(message: str) -> None:
+    print(f"  ... {message}", flush=True)
