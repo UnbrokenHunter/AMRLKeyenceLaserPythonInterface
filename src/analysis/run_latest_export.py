@@ -192,7 +192,11 @@ def main() -> None:
             continue
 
         print(f"Running:   {', '.join(sorted(graph_names))}", flush=True)
-        files = create_plots(data, output_dir, options)
+        try:
+            files = create_plots(data, output_dir, options)
+        except RuntimeError as error:
+            raise SystemExit(str(error)) from error
+
         produced_files.extend(files)
 
     if _matplotlib_required(options) and not options.save:

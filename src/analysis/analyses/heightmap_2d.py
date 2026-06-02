@@ -249,9 +249,12 @@ def _interpolate_points_to_grid(
 
     try:
         from scipy.interpolate import griddata
-    except ImportError:
-        _progress("SciPy not installed; using slower nearest-neighbor fallback")
-        return X, Y, _nearest_grid(x, y, z, X, Y)
+    except ImportError as error:
+        raise RuntimeError(
+            "SciPy is required for heightmap interpolation. "
+            "Install dependencies with install_bridge.bat or run: "
+            "pip install -r requirements.txt"
+        ) from error
 
     Z_linear = griddata(
         points=(x, y),
@@ -269,32 +272,6 @@ def _interpolate_points_to_grid(
     return X, Y, Z
 
 
-def _nearest_grid(x, y, z, X, Y):
-    import numpy as np
-
-    Z = np.empty_like(X, dtype=float)
-    points = np.column_stack([x, y])
-    flat_targets = np.column_stack([X.ravel(), Y.ravel()])
-    chunk_size = 2000
-    values = []
-
-    for start in range(0, len(flat_targets), chunk_size):
-        if start % (chunk_size * 10) == 0:
-            percent = min(100, int(start / max(1, len(flat_targets)) * 100))
-            _progress(f"nearest-neighbor fallback {percent}%")
-
-        targets = flat_targets[start : start + chunk_size]
-        distances = (
-            (targets[:, None, 0] - points[None, :, 0]) ** 2
-            + (targets[:, None, 1] - points[None, :, 1]) ** 2
-        )
-        nearest = np.argmin(distances, axis=1)
-        values.append(z[nearest])
-
-    Z.ravel()[:] = np.concatenate(values)
-    return Z
-
-
 def _gaussian_smooth_nan_safe(Z, *, sigma: float):
     import numpy as np
 
@@ -303,8 +280,12 @@ def _gaussian_smooth_nan_safe(Z, *, sigma: float):
 
     try:
         from scipy.ndimage import gaussian_filter
-    except ImportError:
-        return _gaussian_smooth_fallback(Z, sigma=sigma)
+    except ImportError as error:
+        raise RuntimeError(
+            "SciPy is required for heightmap Gaussian smoothing. "
+            "Install dependencies with install_bridge.bat or run: "
+            "pip install -r requirements.txt"
+        ) from error
 
     valid_mask = ~np.isnan(Z)
     Z_filled = np.where(valid_mask, Z, 0.0)
@@ -314,61 +295,6 @@ def _gaussian_smooth_nan_safe(Z, *, sigma: float):
     mask = smoothed_weights > 0
     result[mask] = smoothed_values[mask] / smoothed_weights[mask]
     return result
-
-
-def _gaussian_smooth_fallback(Z, *, sigma: float):
-    import numpy as np
-
-    kernel = _gaussian_kernel(sigma)
-    result = Z.copy()
-
-    for axis in (1, 0):
-        result = np.apply_along_axis(
-            lambda line: _smooth_line_nan_safe(line, kernel),
-            axis,
-            result,
-        )
-
-    return result
-
-
-def _gaussian_kernel(sigma: float):
-    import numpy as np
-
-    radius = max(1, int(round(sigma * 3)))
-    offsets = np.arange(-radius, radius + 1, dtype=float)
-    weights = np.exp(-((offsets * offsets) / (2 * sigma * sigma)))
-    return weights / weights.sum()
-
-
-def _smooth_line_nan_safe(line, kernel):
-    import numpy as np
-
-    radius = len(kernel) // 2
-    smoothed = np.full_like(line, np.nan, dtype=float)
-
-    for index, value in enumerate(line):
-        weighted_sum = 0.0
-        weight_sum = 0.0
-
-        for offset, weight in enumerate(kernel):
-            source_index = index + offset - radius
-
-            if not 0 <= source_index < len(line):
-                continue
-
-            source_value = line[source_index]
-
-            if np.isnan(source_value):
-                continue
-
-            weighted_sum += source_value * weight
-            weight_sum += weight
-
-        if weight_sum > 0:
-            smoothed[index] = weighted_sum / weight_sum
-
-    return smoothed
 
 
 def _plot_top_down_heightmap(

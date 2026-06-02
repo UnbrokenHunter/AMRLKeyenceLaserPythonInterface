@@ -69,6 +69,7 @@ if "%~1"=="" (
     echo   --layer applies to the 1D graphs/reports.
     echo   heightmap is the 2D X/Y plot with color/contours for Z height.
     echo   surface3d is the separate 3D surface plot.
+    echo   heightmap and surface3d require SciPy.
     echo   Without --save, graphs open as interactive Matplotlib windows.
     echo   With --save, files are written to analysis_outputs.
     echo   Press Enter with no flags to use defaults.

@@ -453,7 +453,7 @@ Heightmap flags:
 
 The heightmap normalizes X separately for each scan layer, spreads layers across Y, interpolates the uneven points onto a rectangular grid, and then plots both a top-down map and a 3D surface. This matches the intended scan shape better when different layers have different sample counts.
 
-The analysis tools require Matplotlib. Heightmap interpolation and Gaussian smoothing use SciPy when available, with fallback behavior when SciPy is missing. If the analysis script reports that Matplotlib or SciPy is missing, install/update the environment on a machine with dependency access:
+The analysis tools require Matplotlib. Heightmap interpolation and Gaussian smoothing require SciPy. If the analysis script reports that Matplotlib or SciPy is missing, install/update the environment on a machine with dependency access:
 
 ```bat
 pip install -r requirements.txt
