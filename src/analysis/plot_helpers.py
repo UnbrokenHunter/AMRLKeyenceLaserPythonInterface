@@ -39,6 +39,7 @@ def metadata_title(data: ExportData, title: str | None = None) -> str:
     for label, field, unit in (
         ("X", "start_x", ""),
         ("Y", "start_y", ""),
+        ("Z", "z", ""),
         ("Length", "scan_length", ""),
         ("Width", "scan_width", ""),
         ("dY", "delta_y", ""),

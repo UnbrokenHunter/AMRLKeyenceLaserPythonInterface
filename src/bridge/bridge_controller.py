@@ -1013,6 +1013,7 @@ class BridgeController:
                 collected_at_ns=sample.collected_at_ns,
                 start_x=metadata.start_x,
                 start_y=metadata.start_y,
+                z=metadata.z,
                 scan_length=metadata.scan_length,
                 scan_width=metadata.scan_width,
                 delta_y=metadata.delta_y,

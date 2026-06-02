@@ -367,7 +367,7 @@ Current generated outputs include:
 - `heightmap_3d.png`: 3D surface heightmap with Z exaggeration. Produced by the `surface3d` graph.
 - `summary.txt`: sample counts, metadata, and valid-height summary statistics.
 
-Analysis plots use the exported scan metadata when available. Metadata such as `X`, `Y`, `LENGTH`, `WIDTH`, `DELTAY`, and `SCANSPEED` is shown in titles and summaries. Sample timestamps use `collected_at_ns` when present.
+Analysis plots use the exported scan metadata when available. Metadata such as `X`, `Y`, `Z`, `LENGTH`, `WIDTH`, `DELTAY`, and `SCANSPEED` is shown in titles and summaries. Sample timestamps use `collected_at_ns` when present.
 
 By default, all available outputs are produced interactively. To choose specific graphs, list the graph names directly after the batch file:
 
@@ -414,19 +414,19 @@ analyze_latest_export.bat heightmap --title "Scan 12"
 Heightmap options:
 
 ```bat
-analyze_latest_export.bat heightmap --contours 20
+analyze_latest_export.bat heightmap -l 20
 ```
 
 ```bat
-analyze_latest_export.bat heightmap --tilt --smooth 1.5
+analyze_latest_export.bat heightmap -t -s 1.5
 ```
 
 ```bat
-analyze_latest_export.bat heightmap --square
+analyze_latest_export.bat heightmap -sq
 ```
 
 ```bat
-analyze_latest_export.bat heightmap surface3d --z-exaggeration 20
+analyze_latest_export.bat heightmap surface3d -z 20
 ```
 
 ```bat
@@ -435,11 +435,11 @@ analyze_latest_export.bat heightmap --heightmap-grid-x-count 350 --heightmap-gri
 
 Heightmap flags:
 
-- `--heightmap-tilt-correction`: subtracts a best-fit plane before plotting.
-- `--heightmap-gaussian-sigma <number>`: smooths the heightmap; `0` disables smoothing.
-- `--heightmap-force-metadata-size`: uses metadata dimensions for the X/Y plotting extents and interpolates into that physical rectangle. Without this flag, the 2D heightmap is a ragged sample-count grid: each layer ends where its samples end, shorter rows leave blank space on the right, and Y is spread by layer spacing.
-- `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
-- `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
+- `-t`, `--tilt`, `--heightmap-tilt-correction`: subtracts a best-fit plane before plotting.
+- `-s <number>`, `--smooth <number>`, `--heightmap-gaussian-sigma <number>`: smooths the heightmap; `0` disables smoothing.
+- `-sq`, `--square`, `--heightmap-force-metadata-size`: uses metadata dimensions for the X/Y plotting extents and interpolates into that physical rectangle. Without this flag, the 2D heightmap is a ragged sample-count grid: each layer ends where its samples end, shorter rows leave blank space on the right, and Y is spread by layer spacing.
+- `-z <number>`, `--z-exaggeration <number>`, `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
+- `-l <count>`, `--contours <count>`, `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
 - `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
 - `--heightmap-grid-y-count <count>`: interpolation grid resolution along Y.
 - `--heightmap-cmap <name>`: Matplotlib colormap, such as `turbo`, `viridis`, `plasma`, `inferno`, or `cividis`.
@@ -472,7 +472,7 @@ The app's SPC command documentation is generated from the command registry in `s
 | `PAUSE_TRACKING <registry>` | | Temporarily stop appending heights without ending the tracking session. | `1` on success, `0` on failure |
 | `RESUME_TRACKING <registry>` | | Resume appending heights to a paused tracking registry. | `1` on success, `0` on failure |
 | `CLEAR_TRACKING <registry>` | | Stop tracking a named registry, then clear its samples. | `1` on success, `0` on failure |
-| `SET_SCAN_METADATA <registry> X=... Y=... WIDTH=... LENGTH=... DELTAY=... SCANSPEED=...` | `SET_SCAN_INFO`, `SCAN_METADATA` | Store optional scan metadata for CSV export. | `1` on success, `0` on failure |
+| `SET_SCAN_METADATA <registry> X=... Y=... Z=... WIDTH=... LENGTH=... DELTAY=... SCANSPEED=...` | `SET_SCAN_INFO`, `SCAN_METADATA` | Store optional scan metadata for CSV export. | `1` on success, `0` on failure |
 | `NEXT_LAYER <registry>` | `NEXT_SCAN_LAYER` | Advance a tracking registry to a new scan layer. | `1` on success, `0` on failure |
 | `PREPARE <registry>` | `PREPARE_TRACKING`, `PREPARE_SCAN` | Stop tracking/scanning, clear a registry, start tracking it, and start Keyence scanning/streaming. | `1` on success, `0` on failure |
 | `SAVE <registry>` | `SAVE_TRACKING`, `SAVE_SCAN` | Stop tracking a registry, stop Keyence scanning/streaming, and export the registry to CSV. | `1` on success, `0` on failure |
@@ -528,10 +528,10 @@ Active trackers collect valid Keyence height samples whenever the bridge records
 Optional scan metadata can be attached to a registry before or during a scan:
 
 ```text
-SET_SCAN_METADATA 1 X=0 Y=0 WIDTH=10 LENGTH=20 DELTAY=0.1 SCANSPEED=5
+SET_SCAN_METADATA 1 X=0 Y=0 Z=0 WIDTH=10 LENGTH=20 DELTAY=0.1 SCANSPEED=5
 ```
 
-Supported fields are `X`, `Y`, `WIDTH`, `LENGTH`, `HEIGHT`, `DELTAY`, and `SCANSPEED`. These are optional and are written once per exported row in the CSV. Each collected height sample also receives its own timestamp in the CSV.
+Supported fields are `X`, `Y`, `Z`, `WIDTH`, `LENGTH`, `DELTAY`, and `SCANSPEED`. `Z` represents the physical Z-axis position or offset for the scan; measured samples are still exported as `value_mm`. These metadata fields are optional and are written once per exported row in the CSV. Each collected height sample also receives its own timestamp in the CSV.
 
 Use pause/resume tracking to ignore transition motion while Keyence streaming continues:
 

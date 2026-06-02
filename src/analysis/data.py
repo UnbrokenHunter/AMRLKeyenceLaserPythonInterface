@@ -11,6 +11,7 @@ from pathlib import Path
 METADATA_FIELDS = (
     "start_x",
     "start_y",
+    "z",
     "scan_length",
     "scan_width",
     "delta_y",

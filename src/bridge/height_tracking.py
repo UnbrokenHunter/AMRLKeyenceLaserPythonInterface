@@ -16,6 +16,7 @@ import time
 class ScanMetadata:
     start_x: float | None = None
     start_y: float | None = None
+    z: float | None = None
     scan_length: float | None = None
     scan_width: float | None = None
     delta_y: float | None = None
@@ -143,6 +144,7 @@ class HeightTrackerManager:
         *,
         start_x: float | None = None,
         start_y: float | None = None,
+        z: float | None = None,
         scan_length: float | None = None,
         scan_width: float | None = None,
         delta_y: float | None = None,
@@ -154,6 +156,7 @@ class HeightTrackerManager:
             track.metadata = ScanMetadata(
                 start_x=current.start_x if start_x is None else start_x,
                 start_y=current.start_y if start_y is None else start_y,
+                z=current.z if z is None else z,
                 scan_length=current.scan_length if scan_length is None else scan_length,
                 scan_width=current.scan_width if scan_width is None else scan_width,
                 delta_y=current.delta_y if delta_y is None else delta_y,

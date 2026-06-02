@@ -21,6 +21,7 @@ class CsvHeightSample:
     collected_at_ns: int | None = None
     start_x: float | None = None
     start_y: float | None = None
+    z: float | None = None
     scan_length: float | None = None
     scan_width: float | None = None
     delta_y: float | None = None
@@ -59,6 +60,7 @@ def export_height_samples(
                 "seconds_ago",
                 "start_x",
                 "start_y",
+                "z",
                 "scan_length",
                 "scan_width",
                 "delta_y",
@@ -91,6 +93,7 @@ def export_height_samples(
                     "" if sample.seconds_ago is None else f"{sample.seconds_ago:.3f}",
                     _format_optional_float(sample.start_x),
                     _format_optional_float(sample.start_y),
+                    _format_optional_float(sample.z),
                     _format_optional_float(sample.scan_length),
                     _format_optional_float(sample.scan_width),
                     _format_optional_float(sample.delta_y),

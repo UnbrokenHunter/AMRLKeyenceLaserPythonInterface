@@ -89,12 +89,14 @@ def main() -> None:
     parser.add_argument(
         "--heightmap-tilt-correction",
         "--tilt",
+        "-t",
         action="store_true",
         help="Subtract the best-fit plane before creating the 2D heightmap.",
     )
     parser.add_argument(
         "--heightmap-gaussian-sigma",
         "--smooth",
+        "-s",
         type=float,
         default=0.0,
         help="Gaussian smoothing sigma for the 2D heightmap. 0 disables smoothing.",
@@ -102,6 +104,7 @@ def main() -> None:
     parser.add_argument(
         "--heightmap-force-metadata-size",
         "--square",
+        "-sq",
         action="store_true",
         help=(
             "Resample rows so the heightmap fills the metadata extents even when "
@@ -111,6 +114,7 @@ def main() -> None:
     parser.add_argument(
         "--heightmap-z-exaggeration",
         "--z-exaggeration",
+        "-z",
         type=float,
         default=1.0,
         help="Multiplier applied to displayed Z/color values in the heightmap.",
@@ -118,6 +122,7 @@ def main() -> None:
     parser.add_argument(
         "--heightmap-contours",
         "--contours",
+        "-l",
         type=int,
         default=12,
         help="Number of contour lines in the heightmap. Use 0 for no contours.",

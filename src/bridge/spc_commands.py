@@ -216,7 +216,7 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
                 aliases=("SET_SCAN_INFO", "SCAN_METADATA"),
                 description=(
                     "Store optional scan metadata for a tracking registry. "
-                    "Use named fields such as X=0 Y=0 WIDTH=10 LENGTH=20 "
+                    "Use named fields such as X=0 Y=0 Z=0 WIDTH=10 LENGTH=20 "
                     "DELTAY=0.1 SCANSPEED=5."
                 ),
                 reply_description="1 on success, 0 on failure.",
@@ -582,11 +582,11 @@ def _metadata_key(raw_key: str) -> str:
         "START_X": "start_x",
         "Y": "start_y",
         "START_Y": "start_y",
+        "Z": "z",
+        "START_Z": "z",
         "L": "scan_length",
         "LENGTH": "scan_length",
         "SCAN_LENGTH": "scan_length",
-        "H": "scan_length",
-        "HEIGHT": "scan_length",
         "W": "scan_width",
         "WIDTH": "scan_width",
         "SCAN_WIDTH": "scan_width",
