@@ -383,22 +383,22 @@ Current generated outputs include:
 
 Analysis plots use the exported scan metadata when available. Metadata such as `X`, `Y`, `LENGTH`, `WIDTH`, `DELTAY`, and `SCANSPEED` is shown in titles and summaries. Sample timestamps use `collected_at_ns` when present.
 
-By default, all available outputs are produced interactively. To choose specific graphs, pass `--graphs`:
+By default, all available outputs are produced interactively. To choose specific graphs, list the graph names directly after the batch file:
 
 ```bat
-analyze_latest_export.bat --graphs trace heightmap summary
+analyze_latest_export.bat trace heightmap summary
 ```
 
 To save selected outputs:
 
 ```bat
-analyze_latest_export.bat --graphs trace heightmap summary --save
+analyze_latest_export.bat trace heightmap summary --save
 ```
 
 To mark invalid samples on supported graphs:
 
 ```bat
-analyze_latest_export.bat --graphs trace heightmap --mark-invalid
+analyze_latest_export.bat trace heightmap --mark-invalid
 ```
 
 Available graph/report names:
@@ -409,40 +409,42 @@ Available graph/report names:
 - Report: `summary`
 - Everything: `all`
 
+The older `--graphs heightmap trace` form still works, but direct graph names are preferred.
+
 `heightmap` produces one top-down 2D X/Y plot where color and contour lines show Z height. Use `surface3d` separately when you want the 3D surface view.
 
 For 1D graphs and the summary report, you can filter to one layer:
 
 ```bat
-analyze_latest_export.bat --graphs trace histogram --layer 2
+analyze_latest_export.bat trace histogram --layer 2
 ```
 
 You can set a custom title with:
 
 ```bat
-analyze_latest_export.bat --graphs heightmap --title "Scan 12"
+analyze_latest_export.bat heightmap --title "Scan 12"
 ```
 
 Heightmap options:
 
 ```bat
-analyze_latest_export.bat --graphs heightmap --heightmap-contours 20
+analyze_latest_export.bat heightmap --contours 20
 ```
 
 ```bat
-analyze_latest_export.bat --graphs heightmap --heightmap-tilt-correction --heightmap-gaussian-sigma 1.5
+analyze_latest_export.bat heightmap --tilt --smooth 1.5
 ```
 
 ```bat
-analyze_latest_export.bat --graphs heightmap --heightmap-force-metadata-size --heightmap-z-exaggeration 2
+analyze_latest_export.bat heightmap --square
 ```
 
 ```bat
-analyze_latest_export.bat --graphs heightmap surface3d --heightmap-z-exaggeration 20
+analyze_latest_export.bat heightmap surface3d --z-exaggeration 20
 ```
 
 ```bat
-analyze_latest_export.bat --graphs heightmap --heightmap-grid-x-count 350 --heightmap-grid-y-count 350 --heightmap-cmap turbo
+analyze_latest_export.bat heightmap --heightmap-grid-x-count 350 --heightmap-grid-y-count 350 --cmap turbo
 ```
 
 Heightmap flags:

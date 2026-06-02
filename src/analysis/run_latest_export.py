@@ -35,6 +35,12 @@ def main() -> None:
         description="Analyze the newest bridge CSV export and generate plots.",
     )
     parser.add_argument(
+        "graph_args",
+        nargs="*",
+        choices=GRAPH_CHOICES,
+        help="Optional graph names, such as heightmap, trace, histogram, or surface3d.",
+    )
+    parser.add_argument(
         "--export-dir",
         default="exports",
         help="Folder containing CSV exports. Defaults to exports.",
@@ -82,17 +88,20 @@ def main() -> None:
     )
     parser.add_argument(
         "--heightmap-tilt-correction",
+        "--tilt",
         action="store_true",
         help="Subtract the best-fit plane before creating the 2D heightmap.",
     )
     parser.add_argument(
         "--heightmap-gaussian-sigma",
+        "--smooth",
         type=float,
         default=0.0,
         help="Gaussian smoothing sigma for the 2D heightmap. 0 disables smoothing.",
     )
     parser.add_argument(
         "--heightmap-force-metadata-size",
+        "--square",
         action="store_true",
         help=(
             "Resample rows so the heightmap fills the metadata extents even when "
@@ -101,12 +110,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--heightmap-z-exaggeration",
+        "--z-exaggeration",
         type=float,
         default=1.0,
         help="Multiplier applied to displayed Z/color values in the heightmap.",
     )
     parser.add_argument(
         "--heightmap-contours",
+        "--contours",
         type=int,
         default=12,
         help="Number of contour lines in the heightmap. Use 0 for no contours.",
@@ -125,6 +136,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--heightmap-cmap",
+        "--cmap",
         default="turbo",
         help="Matplotlib colormap for heightmaps, such as turbo, viridis, plasma, inferno, or cividis.",
     )
@@ -141,7 +153,7 @@ def main() -> None:
     output_dir = output_dir_for_export(csv_path, args.output_dir)
 
     options = AnalysisOptions(
-        graphs=_normalize_graphs(args.graphs),
+        graphs=_normalize_graphs(args.graph_args or args.graphs),
         save=args.save,
         title=args.title,
         layer=args.layer,
