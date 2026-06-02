@@ -23,7 +23,7 @@ class InputReading:
 
 
 class InputClient(ABC):
-    """Abstract base class for real/simulated input devices."""
+    """Abstract base class for Keyence input devices."""
 
     @abstractmethod
     def open(self) -> None:

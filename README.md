@@ -19,7 +19,6 @@ This project is a Python/Textual terminal application that lets SpiiPlusSPC requ
   - [SPC Coms Panel](#spc-coms-panel)
   - [Keyence Coms Panel](#keyence-coms-panel)
   - [Height Panel](#height-panel)
-  - [Simulator Mode](#simulator-mode)
 - [Export Analysis](#export-analysis)
 - [SPC Command Reference](#spc-command-reference)
   - [Tracking Registries](#tracking-registries)
@@ -184,7 +183,7 @@ The app is a terminal UI. It is organized around these panels:
 - `SPC Coms`: serial traffic between SPC software and Python over com0com.
 - `Keyence Coms`: serial traffic between Python and the Keyence controller.
 - `Status`: current Keyence, SPC, and bridge state.
-- `Control bar`: connect/read/stream/simulator/view toggles.
+- `Control bar`: connect/read/stream/view toggles.
 - `Height`: live height graph and tracking-registry graph.
 - `Footer help bar`: hover over controls and panels to see contextual help.
 
@@ -192,7 +191,6 @@ Main controls:
 
 - `Close`: closes serial connections and exits the app.
 - `Connect`: applies the current settings and opens the Keyence/SPC serial connections.
-- `Simulator`: toggles simulated Keyence readings.
 - `Read`: performs one averaged Keyence read.
 - `Keyence Stream`: starts or stops Keyence automatic transmission.
 - `Height`: shows or hides the height graph panel.
@@ -217,7 +215,6 @@ The `Exports` field controls how many CSV export files are kept in the project `
 | `c` | Connect |
 | `h` | Toggle Height panel |
 | `d` | Toggle SPC Docs |
-| `s` | Toggle simulator |
 | `r` | Read once |
 
 ## Recommended SPC Serial Settings
@@ -338,17 +335,6 @@ The `INV` toggle controls whether invalid readings are included in the graph and
 The `NEXT LAYER` button advances the selected tracking registry to a new scan layer. It does not assign any physical axis or offset.
 
 The Height panel is for operator visibility. SPC command replies are still handled through the SPC serial request/reply path.
-
-### Simulator Mode
-
-Simulator mode is not recommended for normal operation. It is mainly a programming/debugging aid for development work.
-
-Important simulator limitations:
-
-- It is not guaranteed to be updated with every newer bridge feature.
-- It should not be treated as a full SPC/com0com/hardware simulation.
-- It is mainly useful for testing Keyence-style communications and UI behavior without the Keyence controller attached.
-- It is not intended to validate SPC Coms behavior. Use a real com0com pair for SPC-side testing.
 
 ## Export Analysis
 
@@ -696,7 +682,6 @@ Fixes:
 - Check the USB-RS232 adapter or RS232 connection.
 - Check that no other program has the Keyence port open.
 - Press `Connect` after changing the port.
-- Do not rely on simulator mode for normal operation.
 
 ### Keyence read fails or returns invalid data
 
@@ -784,5 +769,4 @@ Implementation details are documented in the relevant Python module docstrings, 
 - `src.bridge.spc_commands`
 - `src.output.spc_software_client`
 - `src.input.keyence_input_client`
-- `src.input.simulated_input_client`
 - `src.display.terminal_app`

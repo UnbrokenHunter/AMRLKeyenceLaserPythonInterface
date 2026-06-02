@@ -9,7 +9,7 @@ from textual.widgets import Static
 
 HELP_TEXT_ATTR = "_bridge_hover_help_text"
 DEFAULT_HELP_TEXT = (
-    "q: Quit  |  c: Connect  |  h: Height  |  d: Docs  |  s: Simulator  |  r: Read  |  "
+    "q: Quit  |  c: Connect  |  h: Height  |  d: Docs  |  r: Read  |  "
     "Hover over a control for help"
 )
 

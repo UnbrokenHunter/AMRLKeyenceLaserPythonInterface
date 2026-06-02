@@ -2,20 +2,20 @@
 
 BridgeController is the central state owner for the app. The Textual UI calls
 methods on this object to connect, read, start/stop streams, update settings,
-toggle simulator mode, and handle manual commands. The UI then reads
+handle manual commands. The UI then reads
 ``controller.state`` and drains ``controller.drain_events()`` to update panels.
 
 SPC request flow:
     1. SpcSoftwareClient reads a line from the Python side of the com0com pair.
     2. poll_spc_once emits SPC_RECEIVED and passes the message to the command registry.
     3. The registry dispatches a handler, usually back into this controller.
-    4. The controller talks to Keyence, simulator, or tracking state as needed.
+    4. The controller talks to Keyence or tracking state as needed.
     5. poll_spc_once sends the reply back to SPC and emits SPC_SENT.
 
 Keyence read flow:
     1. The UI or SPC asks for a height.
     2. The controller calls the active InputClient.
-    3. Real mode uses KeyenceInputClient; simulator mode uses SimulatedInputClient.
+    3. Keyence reads use KeyenceInputClient.
     4. Valid readings update bridge state, live height display, and active trackers.
 """
 
@@ -40,7 +40,6 @@ from src.bridge.bridge_state import BridgeViewState, DeviceViewState
 from src.bridge.height_tracking import HeightTrackerManager
 from src.input.input_client import InputClient, InputReading
 from src.input.keyence_input_client import KeyenceInputClient
-from src.input.simulated_input_client import SimulatedInputClient
 from src.output.spc_software_client import SpcSoftwareClient
 from src.serial_settings import (
     SerialPortSettings,
@@ -52,7 +51,6 @@ from src.serial_settings import (
 
 @dataclass
 class BridgeConfig:
-    use_simulator: bool = False
     keyence_port: str = "COM5"
     keyence_baudrate: int = 115200
     keyence_timeout: float = 1.0
@@ -64,10 +62,6 @@ class BridgeConfig:
     keyence_out_no: int = 1
     keyence_poll_interval_ms: int = 5
 
-    simulated_base_height_mm: float = 12.000
-    simulated_noise_std_mm: float = 0.002
-    simulated_drift_per_sec_mm: float = 0.0001
-    simulated_invalid_probability: float = 0.0
     log_keep_count: int = 25
     export_keep_count: int = 25
 
@@ -85,7 +79,7 @@ class BridgeController:
                 connected=False,
                 port=config.keyence_port,
                 height_mm=None,
-                state="Simulator selected" if config.use_simulator else "Real hardware selected",
+                state="Real hardware selected",
             ),
             spc=DeviceViewState(
                 connected=False,
@@ -93,7 +87,6 @@ class BridgeController:
                 height_mm=None,
                 state="SPC not connected",
             ),
-            use_simulator=config.use_simulator,
             keyence_out_no=config.keyence_out_no,
             keyence_poll_interval_ms=config.keyence_poll_interval_ms,
             spc_baudrate=config.spc_baudrate,
@@ -141,11 +134,7 @@ class BridgeController:
             self.state.keyence.connected = True
             self.state.keyence.height_mm = reading.value_mm
             self._record_height_sample(reading.value_mm)
-            self.state.keyence.state = (
-                f"Connected (sim OUT{self.config.keyence_out_no})"
-                if self.config.use_simulator
-                else f"Connected OUT{self.config.keyence_out_no}"
-            )
+            self.state.keyence.state = f"Connected OUT{self.config.keyence_out_no}"
 
         except Exception as error:
             self.state.keyence.connected = False
@@ -381,9 +370,7 @@ class BridgeController:
         self.spc_client = self._create_spc_client()
 
         self.state.keyence.connected = False
-        self.state.keyence.state = (
-            "Simulator selected" if self.config.use_simulator else "Real hardware selected"
-        )
+        self.state.keyence.state = "Real hardware selected"
 
         self.state.spc.connected = False
         self.state.spc.state = "SPC not connected"
@@ -405,28 +392,6 @@ class BridgeController:
 
         self.config.keyence_poll_interval_ms = poll_interval_ms
         self.state.keyence_poll_interval_ms = poll_interval_ms
-        self._status_changed()
-
-    def set_simulator(self, enabled: bool) -> None:
-        self._force_stream_off("changing simulator mode")
-
-        if self.state.keyence.connected:
-            self.close()
-
-        self.config.use_simulator = enabled
-        self.state.use_simulator = enabled
-
-        self.input_client = self._create_input_client()
-        self.spc_client.disconnect()
-
-        self.state.keyence.connected = False
-        self.state.keyence.state = (
-            "Simulator selected" if enabled else "Real hardware selected"
-        )
-
-        self.state.spc.connected = False
-        self.state.spc.state = "SPC not connected"
-
         self._status_changed()
 
     def send_keyence_command(self, command: str, *, emit_sent: bool = True) -> None:
@@ -1131,15 +1096,6 @@ class BridgeController:
         return str(program)
 
     def _create_input_client(self) -> InputClient:
-        if self.config.use_simulator:
-            return SimulatedInputClient(
-                base_height_mm=self.config.simulated_base_height_mm,
-                noise_std_mm=self.config.simulated_noise_std_mm,
-                drift_per_sec_mm=self.config.simulated_drift_per_sec_mm,
-                invalid_probability=self.config.simulated_invalid_probability,
-                out_no=self.config.keyence_out_no,
-            )
-
         return KeyenceInputClient(
             settings=SerialPortSettings(
                 port=self.config.keyence_port,

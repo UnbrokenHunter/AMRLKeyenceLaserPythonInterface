@@ -84,7 +84,6 @@ class MiscStatePanel(Vertical):
     def set_state(self, state: BridgeViewState) -> None:
         self.query_one("#misc-state", Static).update(
             Text(
-                f"Simulator: {'ON' if state.use_simulator else 'OFF'}\n"
                 f"Streaming: {'ON' if state.streaming else 'OFF'}\n"
                 f"Height panel: {'shown' if state.height_data_visible else 'hidden'}\n"
                 f"Keyence OUT: {state.keyence_out_no}\n"

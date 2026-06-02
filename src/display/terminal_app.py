@@ -43,7 +43,6 @@ class BridgeTuiApp(App):
         ("h", "toggle_height_data", "Toggle height panel"),
         ("c", "connect", "Connect"),
         ("d", "toggle_spc_docs", "Toggle SPC docs"),
-        ("s", "toggle_simulator", "Toggle simulator"),
         ("r", "read_once", "Read once"),
     ]
 
@@ -137,10 +136,6 @@ class BridgeTuiApp(App):
         message: ControlBar.HeightDataVisibilityChanged,
     ) -> None:
         self._set_height_data_panel_visible(message.visible)
-
-    def on_control_bar_simulator_changed(self, message: ControlBar.SimulatorChanged) -> None:
-        self.controller.set_simulator(message.enabled)
-        self._drain_controller_events()
 
     def on_control_bar_status_visibility_changed(
         self,
@@ -348,10 +343,6 @@ class BridgeTuiApp(App):
         self.controller.connect()
         self._drain_controller_events()
 
-    def action_toggle_simulator(self) -> None:
-        self.controller.set_simulator(not self.controller.state.use_simulator)
-        self._drain_controller_events()
-
     def action_read_once(self) -> None:
         self.controller.read_once()
         self._drain_controller_events()
@@ -477,7 +468,6 @@ class BridgeTuiApp(App):
         control_bar = self.query_one("#controls", ControlBar)
         control_bar.set_stream_enabled(state.streaming)
         control_bar.set_height_data_visible(state.height_data_visible)
-        control_bar.set_simulator_enabled(state.use_simulator)
         control_bar.set_status_visible(self.show_status)
         control_bar.set_spc_coms_visible(self.show_spc_coms)
         control_bar.set_keyence_coms_visible(self.show_keyence_coms)

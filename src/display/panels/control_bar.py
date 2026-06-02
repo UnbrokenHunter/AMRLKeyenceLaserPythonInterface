@@ -84,11 +84,6 @@ class ControlBar(Horizontal):
             super().__init__()
             self.visible = visible
 
-    class SimulatorChanged(Message):
-        def __init__(self, enabled: bool) -> None:
-            super().__init__()
-            self.enabled = enabled
-
     class StatusVisibilityChanged(Message):
         def __init__(self, visible: bool) -> None:
             super().__init__()
@@ -140,9 +135,6 @@ class ControlBar(Horizontal):
         
     def set_height_data_visible(self, visible: bool) -> None:
         self._set_toggle_enabled("height-data-toggle", visible)
-
-    def set_simulator_enabled(self, enabled: bool) -> None:
-        self._set_toggle_enabled("simulator-toggle", enabled)
 
     def set_status_visible(self, visible: bool) -> None:
         self._set_toggle_enabled("status-toggle", visible)
@@ -200,14 +192,6 @@ class ControlBar(Horizontal):
                     "connect-button",
                     self.ConnectRequested,
                     variant="primary",
-                ),
-                ToggleButtonConfig(
-                    "Simulator",
-                    "simulator-toggle",
-                    self.SimulatorChanged,
-                    default_value=True,
-                    on_label="Simulator: ON",
-                    off_label="Simulator: OFF",
                 ),
             ),
             (

@@ -71,8 +71,6 @@ Recommended smoke test:
 7. Toggle the Docs panel with `d`.
 8. Toggle the Height panel with `h`.
 
-Use simulator mode only for programming/debugging. It is not a full system simulator and should not be used to validate SPC/com0com behavior.
-
 ## Command And Documentation Source Of Truth
 
 SPC commands are defined in `create_default_spc_command_registry` in `src.bridge.spc_commands`.
@@ -104,7 +102,7 @@ Current default assumptions:
 - SPC-side com0com peer port: usually `COM20`
 - SPC baud: `9600`
 - SPC reply terminator: `CRLF`
-- Keyence OUT: `2`
+- Keyence OUT: `1`
 - average read samples: `5`
 
 Shared serial settings live in `src.serial_settings`.
@@ -127,7 +125,6 @@ Keep conceptual implementation notes near code:
 - `src.bridge.spc_commands`: SPC command registry and documentation source.
 - `src.output.spc_software_client`: Python side of the com0com SPC serial peer.
 - `src.input.keyence_input_client`: real Keyence serial behavior.
-- `src.input.simulated_input_client`: simulator limitations and scope.
 - `src.display.terminal_app`: UI orchestration and event routing.
 
 If a README section starts explaining internal code flow in detail, consider moving that explanation into one of these module docstrings instead.
