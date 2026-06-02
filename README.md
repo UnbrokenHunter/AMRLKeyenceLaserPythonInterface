@@ -20,6 +20,7 @@ This project is a Python/Textual terminal application that lets SpiiPlusSPC requ
   - [Keyence Coms Panel](#keyence-coms-panel)
   - [Height Panel](#height-panel)
   - [Simulator Mode](#simulator-mode)
+- [Export Analysis](#export-analysis)
 - [SPC Command Reference](#spc-command-reference)
   - [Tracking Registries](#tracking-registries)
 - [Error Behavior](#error-behavior)
@@ -206,6 +207,8 @@ The `Logs` field in Bridge State controls how many session log files are kept in
 
 The `Exports` field controls how many CSV export files are kept in the project `exports` folder. Use `0` for unlimited exports.
 
+`analyze_latest_export.bat` runs the separate offline analysis tools against the newest CSV export and writes graphs to `analysis_outputs`.
+
 ## Keyboard Shortcuts
 
 | Key | Action |
@@ -346,6 +349,114 @@ Important simulator limitations:
 - It should not be treated as a full SPC/com0com/hardware simulation.
 - It is mainly useful for testing Keyence-style communications and UI behavior without the Keyence controller attached.
 - It is not intended to validate SPC Coms behavior. Use a real com0com pair for SPC-side testing.
+
+## Export Analysis
+
+The analysis tools are separate from the bridge app. They do not open serial ports, connect to Keyence, or talk to SPC. They only read exported CSV files from `exports` and write analysis output to `analysis_outputs`.
+
+To analyze the newest export, run:
+
+```bat
+analyze_latest_export.bat
+```
+
+The batch file opens a terminal prompt where you can type analysis flags. Press `Enter` with no flags to use the defaults.
+
+The batch file runs:
+
+```bat
+python -m src.analysis.run_latest_export
+```
+
+The runner finds the newest `.csv` file in `exports`, loads its height samples and metadata, then runs the selected analysis modules in `src.analysis.analyses`.
+
+By default, graphs open as interactive Matplotlib windows and are not saved to disk. Add `--save` to write files to `analysis_outputs`.
+
+Current generated outputs include:
+
+- `height_trace.png`: height versus timestamp or sample index.
+- `height_by_layer.png`: one trace per scan layer, when multiple layers exist.
+- `height_histogram.png`: distribution of valid height readings.
+- `heightmap_top_down.png`: top-down physical X/Y heightmap where color represents Z height, with optional contours.
+- `heightmap_3d.png`: 3D surface heightmap with Z exaggeration. Produced by the `surface3d` graph.
+- `summary.txt`: sample counts, metadata, and valid-height summary statistics.
+
+Analysis plots use the exported scan metadata when available. Metadata such as `X`, `Y`, `LENGTH`, `WIDTH`, `DELTAY`, and `SCANSPEED` is shown in titles and summaries. Sample timestamps use `collected_at_ns` when present.
+
+By default, all available outputs are produced interactively. To choose specific graphs, pass `--graphs`:
+
+```bat
+analyze_latest_export.bat --graphs trace heightmap summary
+```
+
+To save selected outputs:
+
+```bat
+analyze_latest_export.bat --graphs trace heightmap summary --save
+```
+
+Available graph/report names:
+
+- 1D graphs: `trace`, `layers`, `histogram`
+- 2D graph: `heightmap`
+- 3D graph: `surface3d`
+- Report: `summary`
+- Everything: `all`
+
+`heightmap` produces one top-down 2D X/Y plot where color and contour lines show Z height. Use `surface3d` separately when you want the 3D surface view.
+
+For 1D graphs and the summary report, you can filter to one layer:
+
+```bat
+analyze_latest_export.bat --graphs trace histogram --layer 2
+```
+
+You can set a custom title with:
+
+```bat
+analyze_latest_export.bat --graphs heightmap --title "Scan 12"
+```
+
+Heightmap options:
+
+```bat
+analyze_latest_export.bat --graphs heightmap --heightmap-contours 20
+```
+
+```bat
+analyze_latest_export.bat --graphs heightmap --heightmap-tilt-correction --heightmap-gaussian-sigma 1.5
+```
+
+```bat
+analyze_latest_export.bat --graphs heightmap --heightmap-force-metadata-size --heightmap-z-exaggeration 2
+```
+
+```bat
+analyze_latest_export.bat --graphs heightmap surface3d --heightmap-z-exaggeration 20
+```
+
+```bat
+analyze_latest_export.bat --graphs heightmap --heightmap-grid-x-count 350 --heightmap-grid-y-count 350 --heightmap-cmap turbo
+```
+
+Heightmap flags:
+
+- `--heightmap-tilt-correction`: subtracts a best-fit plane before plotting.
+- `--heightmap-gaussian-sigma <number>`: smooths the heightmap; `0` disables smoothing.
+- `--heightmap-force-metadata-size`: resamples layer rows so the map fills the metadata extents even when layers have different sample counts. If metadata size is missing, this forces a square visible plotting area from the available sample/layer span.
+- `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
+- `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
+- `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
+- `--heightmap-grid-y-count <count>`: interpolation grid resolution along Y.
+- `--heightmap-cmap <name>`: Matplotlib colormap, such as `turbo`, `viridis`, `plasma`, `inferno`, or `cividis`.
+
+The heightmap normalizes X separately for each scan layer, spreads layers across Y, interpolates the uneven points onto a rectangular grid, and then plots both a top-down map and a 3D surface. This matches the intended scan shape better when different layers have different sample counts.
+
+The analysis tools require Matplotlib. Heightmap interpolation and Gaussian smoothing use SciPy when available, with fallback behavior when SciPy is missing. If the analysis script reports that Matplotlib or SciPy is missing, install/update the environment on a machine with dependency access:
+
+```bat
+pip install -r requirements.txt
+```
 
 ## SPC Command Reference
 
