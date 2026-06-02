@@ -228,6 +228,7 @@ class HeightSource:
     label: str
     layers: dict[int, list[float]]
     sample_count: int = 0
+    valid_sample_count: int = 0
     min_value: float | None = None
     max_value: float | None = None
     avg_value: float | None = None
@@ -409,6 +410,9 @@ class HeightDataPanel(Horizontal):
         except ValueError:
             return
 
+        self.add_reading(reading)
+
+    def add_reading(self, reading: InputReading) -> None:
         self.live_samples.append(
             GraphSample(
                 value_mm=reading.value_mm,
@@ -446,7 +450,7 @@ class HeightDataPanel(Horizontal):
         self,
         trackers: dict[
             str,
-            tuple[bool, bool, int, dict[int, list[float]], int, float | None, float | None, float | None],
+            tuple[bool, bool, int, dict[int, list[float]], int, int, float | None, float | None, float | None],
         ],
     ) -> None:
         self.sources = [
@@ -455,7 +459,7 @@ class HeightDataPanel(Horizontal):
                 label=(
                     f"{registry} "
                     f"({self._tracking_state_label(active, paused)}, "
-                    f"{sample_count} samples, "
+                    f"{valid_sample_count}/{sample_count} valid, "
                     f"layer {current_layer})"
                 ),
                 layers={layer_index: list(values) for layer_index, values in layers.items()},
@@ -463,6 +467,7 @@ class HeightDataPanel(Horizontal):
                 min_value=min_value,
                 max_value=max_value,
                 avg_value=avg_value,
+                valid_sample_count=valid_sample_count,
                 current_layer_index=current_layer,
                 active=active,
                 paused=paused,
@@ -473,6 +478,7 @@ class HeightDataPanel(Horizontal):
                 current_layer,
                 layers,
                 sample_count,
+                valid_sample_count,
                 min_value,
                 max_value,
                 avg_value,
@@ -925,7 +931,7 @@ class HeightDataPanel(Horizontal):
         selected_layer = self.selected_layers.get(source.key, "ALL")
 
         if selected_layer == "ALL":
-            return source.sample_count
+            return source.valid_sample_count
 
         try:
             layer_index = int(selected_layer)
@@ -939,7 +945,7 @@ class HeightDataPanel(Horizontal):
 
         if selected_layer == "ALL":
             if (
-                source.sample_count == 0
+                source.valid_sample_count == 0
                 or source.min_value is None
                 or source.max_value is None
                 or source.avg_value is None

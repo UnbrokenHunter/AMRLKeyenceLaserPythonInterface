@@ -119,21 +119,8 @@ class BridgeController:
             self.input_client.open()
 
             self._send_keyence_confirmed("R0", expected="R0")
-
-            reading = self.input_client.read_once()
-
-            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
-            self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
-
             self.state.keyence.connected = True
-            if reading.ok:
-                self.state.keyence.height_mm = reading.value_mm
-                self.state.keyence.state = f"Connected OUT{self.config.keyence_out_no}"
-            else:
-                self.state.keyence.state = (
-                    f"Connected OUT{self.config.keyence_out_no}; "
-                    f"initial read invalid ({reading.judgment})"
-                )
+            self.state.keyence.state = f"Connected OUT{self.config.keyence_out_no}"
 
         except Exception as error:
             self.state.keyence.connected = False
@@ -172,6 +159,7 @@ class BridgeController:
             if not self.state.keyence.connected:
                 raise RuntimeError("Cannot read: Keyence is not connected")
 
+            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
             reading = self.input_client.read_once()
 
             if reading.ok:
@@ -180,8 +168,11 @@ class BridgeController:
             else:
                 self.state.keyence.state = f"Read invalid ({reading.judgment})"
 
-            self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
-            self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
+            self._emit(
+                BridgeEventType.KEYENCE_RECEIVED,
+                reading.raw,
+                payload=reading,
+            )
             self._status_changed()
 
         except Exception as error:
@@ -230,6 +221,9 @@ class BridgeController:
             return
 
         try:
+            self._stream_stop_event.set()
+            self._emit(BridgeEventType.KEYENCE_SENT, "NT")
+            self.input_client.stop_streaming()
             self.state.streaming = False
             self._stop_stream_reader()
 
@@ -242,9 +236,6 @@ class BridgeController:
                 self.state.spc.state = "Waiting"
             else:
                 self.state.spc.state = "SPC not connected"
-
-            self._emit(BridgeEventType.KEYENCE_SENT, "NT")
-            self.input_client.stop_streaming()
 
             self._emit(BridgeEventType.SYSTEM, "Keyence stream stopped")
             self._status_changed()
@@ -558,11 +549,11 @@ class BridgeController:
             return
 
         try:
-            self.state.streaming = False
-            self._stop_stream_reader()
-
+            self._stream_stop_event.set()
             self._emit(BridgeEventType.KEYENCE_SENT, "NT")
             self.input_client.stop_streaming()
+            self.state.streaming = False
+            self._stop_stream_reader()
 
         except Exception as error:
             self._emit(
@@ -619,7 +610,7 @@ class BridgeController:
                 readings = self._read_available_stream_readings(max_readings=1000)
 
                 if not readings:
-                    time.sleep(self._stream_idle_sleep_seconds())
+                    self._stream_stop_event.wait(self._stream_idle_sleep_seconds())
                     continue
 
                 for reading in readings:
@@ -629,7 +620,7 @@ class BridgeController:
                     self._handle_stream_reading(reading)
 
             except TimeoutError:
-                time.sleep(self._stream_idle_sleep_seconds())
+                self._stream_stop_event.wait(self._stream_idle_sleep_seconds())
 
             except Exception as error:
                 with self._state_lock:
@@ -668,17 +659,36 @@ class BridgeController:
 
             self._record_height_sample(reading.value_mm, valid=reading.ok)
 
-        self._queue_stream_ui_event(reading.raw, force=force_ui_event)
+        self._events.put(
+            BridgeEvent(
+                BridgeEventType.KEYENCE_STREAM_RECEIVED,
+                reading.raw,
+                payload=reading,
+            )
+        )
+        self._queue_stream_ui_event(reading.raw, reading=reading, force=force_ui_event)
         self._queue_stream_status_changed(force=force_ui_event)
 
-    def _queue_stream_ui_event(self, message: str, *, force: bool = False) -> None:
+    def _queue_stream_ui_event(
+        self,
+        message: str,
+        *,
+        reading: InputReading,
+        force: bool = False,
+    ) -> None:
         now = time.monotonic()
 
         if not force and now - self._last_stream_ui_event_at < 0.05:
             return
 
         self._last_stream_ui_event_at = now
-        self._events.put(BridgeEvent(BridgeEventType.KEYENCE_RECEIVED, message))
+        self._events.put(
+            BridgeEvent(
+                BridgeEventType.KEYENCE_RECEIVED,
+                message,
+                payload=reading,
+            )
+        )
 
     def _queue_stream_status_changed(self, *, force: bool = False) -> None:
         now = time.monotonic()
@@ -692,7 +702,13 @@ class BridgeController:
     def _stream_idle_sleep_seconds(self) -> float:
         return max(0.001, self.config.keyence_poll_interval_ms / 1000)
 
-    def _emit(self, event_type: BridgeEventType, message: str) -> None:
+    def _emit(
+        self,
+        event_type: BridgeEventType,
+        message: str,
+        *,
+        payload: object = None,
+    ) -> None:
         if event_type == BridgeEventType.SPC_RECEIVED:
             self.state.spc_rx_count += 1
 
@@ -705,7 +721,7 @@ class BridgeController:
         elif event_type == BridgeEventType.KEYENCE_RECEIVED:
             self.state.keyence_rx_count += 1
 
-        self._events.put(BridgeEvent(event_type, message))
+        self._events.put(BridgeEvent(event_type, message, payload=payload))
 
     def _status_changed(self) -> None:
         self.state.last_update = datetime.now()
@@ -745,13 +761,10 @@ class BridgeController:
                 from src.input.keyence_protocol import parse_ms3_response
 
                 reading = parse_ms3_response(response)
-                self.state.keyence.height_mm = reading.value_mm
-                if reading.ok:
-                    self._record_height_sample(reading.value_mm)
                 self.state.keyence.state = (
-                    f"Manual read OK ({reading.judgment})"
+                    f"Manual diagnostic read OK ({reading.judgment})"
                     if reading.ok
-                    else f"Manual read invalid ({reading.judgment})"
+                    else f"Manual diagnostic read invalid ({reading.judgment})"
                 )
                 return
             except Exception:
@@ -803,10 +816,13 @@ class BridgeController:
             return "ERROR STREAMING_ACTIVE"
 
         try:
-            reading = self.input_client.read_once()
-
             self._emit(BridgeEventType.KEYENCE_SENT, self.input_client.read_command())
-            self._emit(BridgeEventType.KEYENCE_RECEIVED, reading.raw)
+            reading = self.input_client.read_once()
+            self._emit(
+                BridgeEventType.KEYENCE_RECEIVED,
+                reading.raw,
+                payload=reading,
+            )
 
             if not reading.ok:
                 self.state.keyence.state = f"SPC read invalid ({reading.judgment})"
@@ -1049,7 +1065,7 @@ class BridgeController:
 
         return str(program)
 
-    def _create_input_client(self) -> InputClient:
+    def _create_input_client(self) -> KeyenceInputClient:
         return KeyenceInputClient(
             settings=SerialPortSettings(
                 port=self.config.keyence_port,

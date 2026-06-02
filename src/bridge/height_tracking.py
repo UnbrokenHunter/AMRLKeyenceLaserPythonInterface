@@ -182,6 +182,48 @@ class HeightTrackerManager:
                 for layer_index, samples in self._get_track(registry).layers.items()
             }
 
+    def valid_layers_snapshot(
+        self,
+        registry: str,
+        *,
+        max_points: int = 2000,
+    ) -> dict[int, list[float]]:
+        with self._lock:
+            track = self._get_track(registry)
+            valid_samples = [
+                sample
+                for sample in track.samples
+                if sample.valid
+            ]
+
+            if len(valid_samples) <= max_points:
+                return {
+                    layer_index: [
+                        sample.value_mm for sample in samples if sample.valid
+                    ]
+                    for layer_index, samples in track.layers.items()
+                }
+
+            if max_points <= 0:
+                return {}
+
+            snapshot: dict[int, list[float]] = {}
+            for sample in valid_samples:
+                snapshot.setdefault(sample.layer_index, [])
+
+            if max_points == 1:
+                sample = valid_samples[-1]
+                snapshot[sample.layer_index].append(sample.value_mm)
+                return snapshot
+
+            for index in range(max_points):
+                sample = valid_samples[
+                    round(index * (len(valid_samples) - 1) / (max_points - 1))
+                ]
+                snapshot.setdefault(sample.layer_index, []).append(sample.value_mm)
+
+            return snapshot
+
     def registries(self) -> list[str]:
         with self._lock:
             return sorted(self._tracks.keys())

@@ -396,12 +396,32 @@ class BridgeTuiApp(App):
                 )
 
             elif event.type == BridgeEventType.KEYENCE_RECEIVED:
-                self.program_logger.write("RX", "KEYENCE", event.message)
+                if not self.controller.state.streaming:
+                    self.program_logger.write("RX", "KEYENCE", event.message)
+
                 self._log_keyence_received(event.message)
 
+                if not self.controller.state.streaming:
+                    height_data_panel = self.query_one(
+                        "#height-data-panel",
+                        HeightDataPanel,
+                    )
+                    height_data_panel.log_data(event.message)
+
+                    if event.payload is not None:
+                        height_data_panel.add_reading(event.payload)
+                    else:
+                        height_data_panel.add_keyence_response(event.message)
+
+            elif event.type == BridgeEventType.KEYENCE_STREAM_RECEIVED:
+                self.program_logger.write("RX", "KEYENCE", event.message)
+
                 height_data_panel = self.query_one("#height-data-panel", HeightDataPanel)
-                height_data_panel.log_data(event.message)
-                height_data_panel.add_keyence_response(event.message)
+
+                if event.payload is not None:
+                    height_data_panel.add_reading(event.payload)
+                else:
+                    height_data_panel.add_keyence_response(event.message)
                 
             elif event.type == BridgeEventType.ERROR:
                 self.program_logger.write("ERROR", "SYSTEM", event.message)
@@ -487,8 +507,11 @@ class BridgeTuiApp(App):
                         self.controller.height_trackers.is_active(registry),
                         self.controller.height_trackers.is_paused(registry),
                         self.controller.height_trackers.current_layer(registry),
-                        self.controller.height_trackers.valid_layers(registry),
+                        self.controller.height_trackers.valid_layers_snapshot(
+                            registry,
+                        ),
                         self.controller.height_trackers.total_sample_count(registry),
+                        self.controller.height_trackers.valid_sample_count(registry),
                         self.controller.height_trackers.minimum(registry),
                         self.controller.height_trackers.maximum(registry),
                         self.controller.height_trackers.average(registry),

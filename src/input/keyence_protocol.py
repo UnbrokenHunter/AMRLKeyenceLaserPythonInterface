@@ -20,9 +20,6 @@ def parse_ms3_response(response: str) -> InputReading:
 def parse_stream_response(response: str) -> InputReading:
     parts = response.strip().split(",")
 
-    if parts and parts[0] == "NS":
-        parts = parts[1:]
-
     if len(parts) != 3:
         raise ValueError(f"Unexpected stream response: {response!r}")
 

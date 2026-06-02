@@ -125,9 +125,6 @@ class KeyenceInputClient(InputClient):
         if self.streaming:
             return
 
-        self._ser.reset_input_buffer()
-        self._ser.reset_output_buffer()
-
         response = self.send_command(self.stream_command())
 
         if response != "NS":
@@ -152,7 +149,7 @@ class KeyenceInputClient(InputClient):
         self.write_command_no_response("NT")
         self.streaming = False
 
-        time.sleep(0.05)
+        time.sleep(0.005)
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
         self._reset_stream_buffer()
@@ -169,7 +166,7 @@ class KeyenceInputClient(InputClient):
 
         self._ser.write(b"NT\r")
         self._ser.flush()
-        time.sleep(0.05)
+        time.sleep(0.005)
 
         self._ser.reset_input_buffer()
         self._ser.reset_output_buffer()
