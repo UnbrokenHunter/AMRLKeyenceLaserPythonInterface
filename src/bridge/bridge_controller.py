@@ -727,13 +727,14 @@ class BridgeController:
 
             if reading.ok:
                 self.state.keyence.height_mm = reading.value_mm
-                self._record_height_sample(reading.value_mm)
                 self.state.keyence.state = f"Streaming OK ({reading.judgment})"
             else:
                 self.state.keyence.state = (
                     f"Streaming invalid: info={reading.result_info}, "
                     f"judgment={reading.judgment}"
                 )
+
+            self._record_height_sample(reading.value_mm, valid=reading.ok)
 
         self._queue_stream_ui_event(reading.raw, force=force_ui_event)
         self._queue_stream_status_changed(force=force_ui_event)
@@ -871,8 +872,8 @@ class BridgeController:
     def format_latest_height_reply(self) -> str:
         return self._format_latest_height_reply()
 
-    def _record_height_sample(self, value_mm: float) -> None:
-        self.height_trackers.add_sample(value_mm)
+    def _record_height_sample(self, value_mm: float, *, valid: bool = True) -> None:
+        self.height_trackers.add_sample(value_mm, valid=valid)
 
     def _read_height_for_spc(self) -> str:
         if not self.state.keyence.connected:
@@ -1070,7 +1071,7 @@ class BridgeController:
         samples = [
             CsvHeightSample(
                 value_mm=sample.value_mm,
-                valid=True,
+                valid=sample.valid,
                 layer_index=sample.layer_index,
                 layer_sample_index=sample.layer_sample_index,
                 collected_at=sample.collected_at,
@@ -1086,7 +1087,7 @@ class BridgeController:
         ]
 
         return export_height_samples(
-            source_name=f"register-{registry}-valid-only",
+            source_name=f"register-{registry}-include-invalid",
             samples=samples,
             keep_count=self.config.export_keep_count,
         )

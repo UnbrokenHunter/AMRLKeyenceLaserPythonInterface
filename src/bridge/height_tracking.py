@@ -25,6 +25,7 @@ class ScanMetadata:
 @dataclass(frozen=True)
 class TrackedHeightSample:
     value_mm: float
+    valid: bool
     layer_index: int
     layer_sample_index: int
     collected_at_ns: int
@@ -42,6 +43,7 @@ class HeightTrack:
     samples: list[TrackedHeightSample] = field(default_factory=list)
     layers: dict[int, list[TrackedHeightSample]] = field(default_factory=dict)
     sum_value: float = 0.0
+    valid_count: int = 0
     min_value: float | None = None
     max_value: float | None = None
     metadata: ScanMetadata = field(default_factory=ScanMetadata)
@@ -88,6 +90,7 @@ class HeightTrackerManager:
             track.layers.clear()
             track.current_layer_index = 0
             track.sum_value = 0.0
+            track.valid_count = 0
             track.min_value = None
             track.max_value = None
             track.dirty = False
@@ -113,7 +116,7 @@ class HeightTrackerManager:
             track.current_layer_index += 1
             return track.current_layer_index
 
-    def add_sample(self, value_mm: float) -> None:
+    def add_sample(self, value_mm: float, *, valid: bool = True) -> None:
         collected_at_ns = time.time_ns()
 
         with self._lock:
@@ -122,6 +125,7 @@ class HeightTrackerManager:
                     layer_samples = track.layers.setdefault(track.current_layer_index, [])
                     sample = TrackedHeightSample(
                         value_mm=value_mm,
+                        valid=valid,
                         layer_index=track.current_layer_index,
                         layer_sample_index=len(layer_samples) + 1,
                         collected_at_ns=collected_at_ns,
@@ -129,7 +133,9 @@ class HeightTrackerManager:
                     layer_samples.append(sample)
                     track.samples.append(sample)
                     track.dirty = True
-                    self._record_summary(track, value_mm)
+
+                    if valid:
+                        self._record_summary(track, value_mm)
 
     def set_metadata(
         self,
@@ -161,7 +167,7 @@ class HeightTrackerManager:
             return self._get_track(registry).metadata
 
     def values(self, registry: str) -> list[float]:
-        return [sample.value_mm for sample in self.samples(registry)]
+        return [sample.value_mm for sample in self.samples(registry) if sample.valid]
 
     def samples(self, registry: str) -> list[TrackedHeightSample]:
         with self._lock:
@@ -170,7 +176,7 @@ class HeightTrackerManager:
     def layers(self, registry: str) -> dict[int, list[float]]:
         with self._lock:
             return {
-                layer_index: [sample.value_mm for sample in samples]
+                layer_index: [sample.value_mm for sample in samples if sample.valid]
                 for layer_index, samples in self._get_track(registry).layers.items()
             }
 
@@ -193,7 +199,7 @@ class HeightTrackerManager:
     def average(self, registry: str) -> float | None:
         with self._lock:
             track = self._get_track(registry)
-            return track.sum_value / len(track.samples) if track.samples else None
+            return track.sum_value / track.valid_count if track.valid_count else None
 
     def minimum(self, registry: str) -> float | None:
         with self._lock:
@@ -232,6 +238,7 @@ class HeightTrackerManager:
     @staticmethod
     def _record_summary(track: HeightTrack, value_mm: float) -> None:
         track.sum_value += value_mm
+        track.valid_count += 1
         track.min_value = (
             value_mm if track.min_value is None else min(track.min_value, value_mm)
         )
@@ -241,16 +248,17 @@ class HeightTrackerManager:
 
     @staticmethod
     def _recalculate_summary(track: HeightTrack) -> None:
-        track.sum_value = sum(sample.value_mm for sample in track.samples)
+        valid_values = [sample.value_mm for sample in track.samples if sample.valid]
+        track.sum_value = sum(valid_values)
+        track.valid_count = len(valid_values)
 
-        if not track.samples:
+        if not valid_values:
             track.min_value = None
             track.max_value = None
             return
 
-        values = [sample.value_mm for sample in track.samples]
-        track.min_value = min(values)
-        track.max_value = max(values)
+        track.min_value = min(valid_values)
+        track.max_value = max(valid_values)
 
 
 def normalize_registry_name(registry: str) -> str:
