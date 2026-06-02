@@ -163,19 +163,19 @@ def create_default_spc_command_registry() -> SpcCommandRegistry:
             ),
             SpcCommand(
                 name="START_STREAM",
-                description="Start Keyence automatic transmission.",
+                description="Start Keyence streaming output.",
                 reply_description="1 on success, 0 on failure.",
                 handler=_handle_start_stream,
             ),
             SpcCommand(
                 name="STOP_STREAM",
-                description="Stop Keyence automatic transmission.",
+                description="Stop Keyence streaming output.",
                 reply_description="1 on success, 0 on failure.",
                 handler=_handle_stop_stream,
             ),
             SpcCommand(
                 name="START_TRACKING",
-                description="Start appending new valid Keyence heights to a named tracking registry.",
+                description="Start appending new Keyence height samples to a named tracking registry.",
                 reply_description="1 on success, 0 on failure.",
                 failure_reply=SPC_FAILURE_STATUS,
                 handler=_handle_start_tracking,

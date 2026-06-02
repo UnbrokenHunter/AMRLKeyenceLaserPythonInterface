@@ -125,12 +125,12 @@ class SpcComsPanel(CommonComsPanel):
                 ),
                 CommandComment(
                     spc_command_pattern("START_STREAM"),
-                    "Request Keyence automatic transmission start",
+                    "Request Keyence streaming output start",
                     regex=True,
                 ),
                 CommandComment(
                     spc_command_pattern("STOP_STREAM"),
-                    "Request Keyence automatic transmission stop",
+                    "Request Keyence streaming output stop",
                     regex=True,
                 ),
                 CommandComment(

@@ -2,7 +2,7 @@
 
 KeyenceInputClient owns the RS232/USB-RS232 conversation with the Keyence
 controller. It sends Keyence commands, parses one-shot measurement responses,
-starts/stops automatic transmission, and converts stream lines into InputReading
+starts/stops Keyence streaming output, and converts stream lines into InputReading
 objects for the controller.
 
 The client does not know about SPC recipes or UI panels. BridgeController uses
@@ -55,7 +55,7 @@ class KeyenceInputClient(InputClient):
         self._ser.reset_output_buffer()
         self._stream_buffer.clear()
 
-        # Try to stop any old automatic transmission left from a previous crash/run.
+        # Try to stop any old Keyence stream left from a previous crash/run.
         self.emergency_stop_streaming()
         
 
@@ -134,7 +134,7 @@ class KeyenceInputClient(InputClient):
 
     def stop_streaming(self) -> None:
         """
-        Stop Keyence automatic transmission.
+        Stop Keyence streaming output.
 
         NT acknowledgement can be mixed with queued stream lines, so stopping is
         best-effort. After stopping, clear remaining stream data from the buffer.
@@ -169,10 +169,10 @@ class KeyenceInputClient(InputClient):
 
     def emergency_stop_streaming(self) -> None:
         """
-        Best-effort attempt to stop Keyence automatic transmission.
+        Best-effort attempt to stop Keyence streaming output.
 
         This does not expect a clean NT response because the serial line may already
-        be flooded with automatic-transmission data.
+        be flooded with stream data.
         """
         if self._ser is None:
             raise RuntimeError("Serial port is not open")
@@ -192,12 +192,12 @@ class KeyenceInputClient(InputClient):
             raise RuntimeError("Serial port is not open")
 
         if not self.streaming:
-            raise RuntimeError("Keyence automatic transmission is not active")
+            raise RuntimeError("Keyence streaming output is not active")
 
         line = self.read_raw_line()
 
         if not line:
-            raise TimeoutError("No automatic-transmission data from Keyence")
+            raise TimeoutError("No stream data from Keyence")
 
         # If the stop acknowledgement somehow appears here, skip it.
         if line == "NT":
@@ -210,7 +210,7 @@ class KeyenceInputClient(InputClient):
     
     def read_latest_stream_reading(self) -> InputReading:
         """
-        Read all currently buffered automatic-transmission lines and return the newest one.
+        Read all currently buffered Keyence stream lines and return the newest one.
 
         This prevents UI lag when the Keyence streams faster than the Textual UI polls.
         """
@@ -218,14 +218,14 @@ class KeyenceInputClient(InputClient):
             raise RuntimeError("Serial port is not open")
 
         if not self.streaming:
-            raise RuntimeError("Keyence automatic transmission is not active")
+            raise RuntimeError("Keyence streaming output is not active")
 
         latest: InputReading | None = None
 
         # Always read at least one line.
         first_line = self.read_raw_line()
         if not first_line:
-            raise TimeoutError("No automatic-transmission data from Keyence")
+            raise TimeoutError("No stream data from Keyence")
 
         latest = parse_stream_response(first_line)
 
@@ -246,7 +246,7 @@ class KeyenceInputClient(InputClient):
 
     def read_available_stream_readings(self, max_readings: int = 500) -> list[InputReading]:
         """
-        Drain complete automatic-transmission lines that are already buffered.
+        Drain complete Keyence stream lines that are already buffered.
 
         This is intentionally non-blocking: if no bytes are waiting, it returns
         an empty list so a background collector can sleep briefly instead of
@@ -256,7 +256,7 @@ class KeyenceInputClient(InputClient):
             raise RuntimeError("Serial port is not open")
 
         if not self.streaming:
-            raise RuntimeError("Keyence automatic transmission is not active")
+            raise RuntimeError("Keyence streaming output is not active")
 
         waiting = self._ser.in_waiting
 

@@ -317,8 +317,8 @@ KEYENCE_COMMAND_COMMENTS = [
     CommandComment("MC", "Start or stop measurement"),
     CommandComment("LC", "Turn laser emission on or off"),
 
-    CommandComment("NS", "Start automatic/continuous sending"),
-    CommandComment("NT", "Stop automatic/continuous sending"),
+    CommandComment("NS", "Start Keyence streaming output"),
+    CommandComment("NT", "Stop Keyence streaming output"),
 
     CommandComment("SW,MK", "Set the masked measurement range"),
     CommandComment("SR,MK", "Read the masked measurement range"),

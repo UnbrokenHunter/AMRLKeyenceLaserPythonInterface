@@ -72,7 +72,7 @@ HELP_ITEMS = {
     "#close-button": "Close serial connections and exit the bridge UI.",
     "#connect-button": "Apply the current serial settings and connect to Keyence and SPC ports.",
     "#read-once-button": "Request one immediate Keyence height read.",
-    "#stream-toggle": "Start or stop Keyence automatic transmission.",
+    "#stream-toggle": "Start or stop Keyence streaming output.",
     "#height-data-toggle": "Show or hide the height source and graph panel.",
     "#status-toggle": "Show or hide all status panels.",
     "#spc-coms-toggle": "Show or hide the SPC communications panel.",
