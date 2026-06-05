@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -58,6 +58,13 @@ class ExportData:
         ]
 
 
+@dataclass(frozen=True)
+class HeightFilterResult:
+    data: ExportData
+    filtered_sample_count: int = 0
+    dropped_sample_count: int = 0
+
+
 def load_export_csv(path: str | Path) -> ExportData:
     csv_path = Path(path)
     samples: list[ExportSample] = []
@@ -97,6 +104,44 @@ def load_export_csv(path: str | Path) -> ExportData:
     return ExportData(path=csv_path, source=source, samples=samples, metadata=metadata)
 
 
+def apply_height_filter(
+    data: ExportData,
+    *,
+    min_height: float | None = None,
+    max_height: float | None = None,
+    drop_filtered: bool = False,
+) -> HeightFilterResult:
+    if min_height is None and max_height is None:
+        return HeightFilterResult(data=data)
+
+    samples: list[ExportSample] = []
+    filtered_sample_count = 0
+    dropped_sample_count = 0
+
+    for sample in data.samples:
+        if _height_in_range(
+            sample.value_mm,
+            min_height=min_height,
+            max_height=max_height,
+        ):
+            samples.append(sample)
+            continue
+
+        filtered_sample_count += 1
+
+        if drop_filtered:
+            dropped_sample_count += 1
+            continue
+
+        samples.append(replace(sample, valid=False))
+
+    return HeightFilterResult(
+        data=replace(data, samples=samples),
+        filtered_sample_count=filtered_sample_count,
+        dropped_sample_count=dropped_sample_count,
+    )
+
+
 def latest_export(export_dir: str | Path = "exports") -> Path:
     export_path = Path(export_dir)
     exports = sorted(
@@ -116,6 +161,21 @@ def output_dir_for_export(csv_path: str | Path, root: str | Path = "analysis_out
     output_dir = Path(root) / csv_path.stem
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
+
+
+def _height_in_range(
+    value: float,
+    *,
+    min_height: float | None,
+    max_height: float | None,
+) -> bool:
+    if min_height is not None and value < min_height:
+        return False
+
+    if max_height is not None and value > max_height:
+        return False
+
+    return True
 
 
 def _optional_datetime(value: str | None) -> datetime | None:

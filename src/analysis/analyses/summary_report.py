@@ -26,6 +26,10 @@ def create_plots(
         f"Source: {data.source}",
         f"CSV: {data.path}",
         f"Layer filter: {options.layer if options.layer is not None else 'ALL'}",
+        f"Height filter: {_height_filter_label(options)}",
+        f"Original samples: {options.original_sample_count if options.original_sample_count is not None else len(samples)}",
+        f"Filtered samples: {options.filtered_sample_count}",
+        f"Dropped samples: {options.dropped_sample_count}",
         f"Total samples: {len(samples)}",
         f"Valid samples: {len(valid_values)}",
         f"Invalid samples: {len(samples) - len(valid_values)}",
@@ -64,3 +68,19 @@ def _selected_samples(data: ExportData, options: AnalysisOptions):
         return data.samples
 
     return data.samples_for_layer(options.layer)
+
+
+def _height_filter_label(options: AnalysisOptions) -> str:
+    if options.min_height is None and options.max_height is None:
+        return "OFF"
+
+    bounds = []
+
+    if options.min_height is not None:
+        bounds.append(f"min={options.min_height:g}")
+
+    if options.max_height is not None:
+        bounds.append(f"max={options.max_height:g}")
+
+    mode = "drop" if options.drop_filtered else "mark invalid"
+    return f"{', '.join(bounds)} ({mode})"

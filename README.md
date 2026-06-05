@@ -387,6 +387,24 @@ To mark invalid samples on supported graphs:
 analyze_latest_export.bat trace heightmap -inv
 ```
 
+To filter values that are too low or too high:
+
+```bat
+analyze_latest_export.bat heightmap -min -0.2 -max 0.05
+```
+
+Filtered samples are marked invalid by default, so `-inv` can still show them on supported graphs:
+
+```bat
+analyze_latest_export.bat heightmap -min -0.2 -max 0.05 -inv
+```
+
+To remove filtered samples entirely from the analysis run:
+
+```bat
+analyze_latest_export.bat heightmap -min -0.2 -max 0.05 --drop-filtered
+```
+
 Available graph/report names:
 
 - 1D graphs: `trace`, `layers`, `histogram`
@@ -441,6 +459,9 @@ Heightmap flags:
 - `-z <number>`, `--z-exaggeration <number>`, `--heightmap-z-exaggeration <number>`: multiplies displayed Z values for `surface3d`.
 - `-l <count>`, `--contours <count>`, `--heightmap-contours <count>`: controls contour line count; `0` disables contours.
 - `-inv`, `--mark-invalid`: marks invalid samples on supported graphs.
+- `-min <number>`, `--min-height <number>`: filters measured heights below this inclusive minimum.
+- `-max <number>`, `--max-height <number>`: filters measured heights above this inclusive maximum.
+- `--drop-filtered`: removes filtered samples entirely instead of marking them invalid.
 - `--heightmap-grid-x-count <count>`: interpolation grid resolution along X.
 - `--heightmap-grid-y-count <count>`: interpolation grid resolution along Y.
 - `--heightmap-cmap <name>`: Matplotlib colormap, such as `turbo`, `viridis`, `plasma`, `inferno`, or `cividis`.

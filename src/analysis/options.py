@@ -12,6 +12,12 @@ class AnalysisOptions:
     title: str | None = None
     layer: int | None = None
     mark_invalid: bool = False
+    min_height: float | None = None
+    max_height: float | None = None
+    drop_filtered: bool = False
+    filtered_sample_count: int = 0
+    dropped_sample_count: int = 0
+    original_sample_count: int | None = None
     heightmap_tilt_correction: bool = False
     heightmap_gaussian_sigma: float = 0.0
     heightmap_force_metadata_size: bool = False

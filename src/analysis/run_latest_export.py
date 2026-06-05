@@ -8,12 +8,18 @@ to analysis_outputs.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import importlib
 import pkgutil
 from pathlib import Path
 
 from src.analysis import analyses
-from src.analysis.data import latest_export, load_export_csv, output_dir_for_export
+from src.analysis.data import (
+    apply_height_filter,
+    latest_export,
+    load_export_csv,
+    output_dir_for_export,
+)
 from src.analysis.options import AnalysisOptions
 from src.analysis.plot_helpers import configure_matplotlib
 
@@ -88,6 +94,25 @@ def main() -> None:
         help="Mark invalid CSV samples on supported graphs.",
     )
     parser.add_argument(
+        "--min-height",
+        "-min",
+        type=float,
+        default=None,
+        help="Minimum inclusive height in mm. Lower values are filtered.",
+    )
+    parser.add_argument(
+        "--max-height",
+        "-max",
+        type=float,
+        default=None,
+        help="Maximum inclusive height in mm. Higher values are filtered.",
+    )
+    parser.add_argument(
+        "--drop-filtered",
+        action="store_true",
+        help="Drop filtered height samples entirely instead of marking them invalid.",
+    )
+    parser.add_argument(
         "--heightmap-tilt-correction",
         "--tilt",
         "-t",
@@ -154,9 +179,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if (
+        args.min_height is not None
+        and args.max_height is not None
+        and args.min_height > args.max_height
+    ):
+        raise SystemExit("--min-height cannot be greater than --max-height")
+
     csv_path = Path(args.csv) if args.csv else latest_export(args.export_dir)
     data = load_export_csv(csv_path)
     output_dir = output_dir_for_export(csv_path, args.output_dir)
+    original_sample_count = len(data.samples)
 
     options = AnalysisOptions(
         graphs=_normalize_graphs(args.graph_args or args.graphs),
@@ -164,6 +197,10 @@ def main() -> None:
         title=args.title,
         layer=args.layer,
         mark_invalid=args.mark_invalid,
+        min_height=args.min_height,
+        max_height=args.max_height,
+        drop_filtered=args.drop_filtered,
+        original_sample_count=original_sample_count,
         heightmap_tilt_correction=args.heightmap_tilt_correction,
         heightmap_gaussian_sigma=max(0.0, args.heightmap_gaussian_sigma),
         heightmap_force_metadata_size=args.heightmap_force_metadata_size,
@@ -173,6 +210,18 @@ def main() -> None:
         heightmap_grid_y_count=max(2, args.heightmap_grid_y_count),
         heightmap_cmap=args.heightmap_cmap,
         surface3d_max_grid=max(20, args.surface3d_max_grid),
+    )
+    filter_result = apply_height_filter(
+        data,
+        min_height=options.min_height,
+        max_height=options.max_height,
+        drop_filtered=options.drop_filtered,
+    )
+    data = filter_result.data
+    options = replace(
+        options,
+        filtered_sample_count=filter_result.filtered_sample_count,
+        dropped_sample_count=filter_result.dropped_sample_count,
     )
 
     if _matplotlib_required(options):
@@ -193,6 +242,13 @@ def main() -> None:
 
     if options.layer is not None:
         print(f"Layer:     {options.layer}")
+
+    if _height_filter_enabled(options):
+        print(f"Filter:    {_height_filter_label(options)}")
+        print(f"Filtered:  {options.filtered_sample_count}")
+
+        if options.drop_filtered:
+            print(f"Dropped:   {options.dropped_sample_count}")
 
     produced_files: list[Path] = []
 
@@ -246,6 +302,23 @@ def main() -> None:
 
 def _matplotlib_required(options: AnalysisOptions) -> bool:
     return "all" in options.graphs or bool(options.graphs & PLOT_GRAPH_NAMES)
+
+
+def _height_filter_enabled(options: AnalysisOptions) -> bool:
+    return options.min_height is not None or options.max_height is not None
+
+
+def _height_filter_label(options: AnalysisOptions) -> str:
+    bounds = []
+
+    if options.min_height is not None:
+        bounds.append(f"min={options.min_height:g}")
+
+    if options.max_height is not None:
+        bounds.append(f"max={options.max_height:g}")
+
+    mode = "drop" if options.drop_filtered else "mark invalid"
+    return f"{', '.join(bounds)} ({mode})"
 
 
 def _normalize_graphs(graphs: list[str]) -> set[str]:

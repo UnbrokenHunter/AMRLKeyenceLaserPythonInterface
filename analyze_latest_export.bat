@@ -57,6 +57,9 @@ echo General flags:
 echo   --save                    Save files to analysis_outputs instead of only opening windows
 echo   --title TEXT              Custom plot/report title
 echo   -inv, --mark-invalid      Mark invalid samples on supported graphs
+echo   -min, --min-height N      Filter values lower than N mm
+echo   -max, --max-height N      Filter values higher than N mm
+echo   --drop-filtered           Remove filtered samples instead of marking invalid
 echo   --csv PATH                Analyze an explicit CSV file
 echo   --export-dir PATH         Folder containing CSV exports
 echo   --output-dir PATH         Folder for saved analysis outputs
@@ -76,6 +79,8 @@ echo.
 echo Examples:
 echo   heightmap -l 20
 echo   heightmap -t -sq -s 0.1 -inv
+echo   heightmap -min -0.2 -max 0.05 -inv
+echo   heightmap -min -0.2 -max 0.05 --drop-filtered
 echo   trace heightmap summary -t --save
 echo   heightmap surface3d -z 20 --title "Scan 12"
 echo.
